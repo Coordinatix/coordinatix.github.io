@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <title>Coordinatix 3D</title>
+    <style>
+        * {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Segoe UI', sans-serif;
+}
+
+body, html {
+  width: 100%;
+  height: 100%;
+  margin:0;
+  overflow: auto;
+}
+
+#canvas-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 0;
+  background-color: #000;
+  overflow: hidden;
+}
+
+
+/* Floating card-style input window */
+#sidebar {
+  position: fixed;                /* was 'absolute' — this anchors it to the viewport */
+  top: 30px;
+  left: 30px;
+  width: 300px;
+  height: calc(100vh - 60px);     /* full height minus padding/margin */
+  overflow-y: auto;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.2); 
+  border-radius: 16px;
+  z-index: 10;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+  color: #fff;
+}
+
+
+#sidebar h2 {
+  font-size: 1.5em;
+  margin-bottom: 20px;
+}
+
+.equation-container {
+  margin-bottom: 15px;
+}
+
+.equation-input {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 10px;
+  border: 1px solid rgba(255,255,255,0.4);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.3);
+  color: #fff;
+}
+
+.equation-input::placeholder {
+  margin-bottom: 0; /* Remove gap between inputs */
+  border-radius: 0; /* Optional: consistent style */
+  color: #eee;
+}
+.equation-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.equation-input {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.135);
+  border-radius: 6px 0 0 6px;
+  background: rgba(255, 255, 255, 0.011);
+  color: #ffffff;
+  margin: 0;
+}
+
+button {
+  padding: 10px 14px;
+  margin: 5px 0;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  background: #00aaff;
+  color: white;
+  transition: background 0.2s ease;
+}
+
+button:hover {
+  background: #0077cc00;
+}
+
+.remove-btn {
+  padding: 10px 14px;
+  background: rgba(255, 80, 80, 0);
+  color: white;
+  border: none;
+  cursor: pointer;
+  border-radius: 0 6px 6px 0;
+  height: 100%;
+  font-size: 1.2em;
+}
+
+.remove-btn:hover {
+  transform: scale(1.2);
+}
+
+#error {
+  color: #ff8888;
+  font-size: 0.9em;
+  margin-top: 10px;
+}
+
+@media (max-width: 768px) {
+  #sidebar {
+    width: 90%;
+    left: 5%;
+  }
+}
+
+    </style>
+</head>
+<body>
+    <div id="sidebar">
+        <h2>Coordinatix</h2>
+        <div id="equations"></div>
+        <div id="error"></div>
+    </div>
+    <div id="canvas-container"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.134/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/10.6.4/math.min.js"></script>
+<script>
+    let scene, camera, renderer, controls;
+    const equations = [];
+    const meshes = [];
+    const resolution = 200;
+    const range = 5;
+
+    function init() {
+        scene = new THREE.Scene();
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(5, 5, 10);
+
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+
+        const axesHelper = new THREE.AxesHelper(5);
+        scene.add(axesHelper);
+
+        const gridHelper = new THREE.GridHelper(20, 20);
+        scene.add(gridHelper);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(10, 10, 10);
+        scene.add(directionalLight);
+
+
+        window.addEventListener('resize', onWindowResize);
+        animate();
+    }
+
+    function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+}
+   function addEquation(equationText = '') {
+  const container = document.getElementById('equations');
+  const index = equations.length;
+  equations.push({ text: equationText, color: getRandomColor() });
+
+  const row = document.createElement('div');
+  row.className = 'equation-row';
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'equation-input';
+  input.placeholder = 'Enter equation (e.g., sin(x) + cos(y))';
+  input.value = equationText;
+
+  const removeBtn = document.createElement('button');
+  removeBtn.className = 'remove-btn';
+  removeBtn.innerHTML = `<img src="images/svg.svg" alt="Delete" width="16" height="16">`;
+
+
+
+  removeBtn.onclick = () => {
+  equations[index] = null;
+  if (meshes[index]) {
+    scene.remove(meshes[index]);
+    meshes[index].geometry.dispose();
+    meshes[index].material.dispose();
+    meshes[index] = null;
+  }
+  container.removeChild(row);
+
+  // ✅ After removing, ensure at least 2 rows exist
+  const remainingRows = document.querySelectorAll('.equation-row').length;
+  while (remainingRows < 2) {
+    addEquation('');
+    break; // Add only enough to make it 2
+  }
+};
+
+
+  input.oninput = () => {
+  updateEquation(index, input.value);
+
+  const inputs = document.querySelectorAll('.equation-input');
+  const isLast = input === inputs[inputs.length - 1];
+
+  if (isLast && input.value.trim() !== '') {
+    addEquation('');
+  }
+};
+
+
+
+  row.appendChild(input);
+  row.appendChild(removeBtn);
+  container.appendChild(row);
+
+  updateEquation(index, equationText);
+}
+
+    function updateEquation(index, text) {
+  equations[index].text = text.trim();
+  document.getElementById('error').innerText = '';
+
+  // If the equation is blank, remove any mesh and skip plotting
+  if (text.trim() === '') {
+    if (meshes[index]) {
+      scene.remove(meshes[index]);
+      meshes[index].geometry.dispose();
+      meshes[index].material.dispose();
+      meshes[index] = null;
+    }
+    return;
+  }
+
+  try {
+    const parser = math.parser();
+    parser.evaluate(`f(x, y) = ${text}`);
+    generateGraph(index);
+  } catch (e) {
+    document.getElementById('error').innerText = `Error in equation ${index + 1}: ${e.message}`;
+    if (meshes[index]) {
+      scene.remove(meshes[index]);
+      meshes[index].geometry.dispose();
+      meshes[index].material.dispose();
+      meshes[index] = null;
+    }
+  }
+}
+
+
+    function generateGraph(index) {
+        if (meshes[index]) {
+            scene.remove(meshes[index]);
+            meshes[index].geometry.dispose();
+            meshes[index].material.dispose();
+        }
+
+        const geometry = new THREE.BufferGeometry();
+        const vertices = [];
+        const colors = [];
+        const color = new THREE.Color(equations[index].color);
+
+        const parser = math.parser();
+        parser.evaluate(`f(x, y) = ${equations[index].text || '0'}`);
+
+        for (let i = 0; i <= resolution; i++) {
+            for (let j = 0; j <= resolution; j++) {
+                const x = (i / resolution) * 2 * range - range;
+                const y = (j / resolution) * 2 * range - range;
+                let z;
+                try {
+                    z = parser.evaluate(`f(${x}, ${y})`);
+                    if (isNaN(z) || !isFinite(z)) z = 0;
+                } catch {
+                    z = 0;
+                }
+                vertices.push(x, y, z);
+                colors.push(color.r, color.g, color.b);
+            }
+        }
+
+        const indices = [];
+        for (let i = 0; i < resolution; i++) {
+            for (let j = 0; j < resolution; j++) {
+                const a = i * (resolution + 1) + j;
+                const b = a + 1;
+                const c = (i + 1) * (resolution + 1) + j;
+                const d = c + 1;
+                indices.push(a, b, d);
+                indices.push(a, d, c);
+            }
+        }
+
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+        geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+        geometry.setIndex(indices);
+
+       const material = new THREE.MeshStandardMaterial({
+     vertexColors: true,
+     side: THREE.DoubleSide,
+     flatShading: true,
+     metalness: 0.1,
+     roughness: 0.8
+     });
+
+        const mesh = new THREE.Mesh(geometry, material);
+        meshes[index] = mesh;
+        scene.add(mesh);
+    }
+
+    function getRandomColor() {
+        return `#${Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0')}`;
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        renderer.render(scene, camera);
+    }
+
+    // Initialize with one equation
+    init();
+    addEquation('sin(x) + cos(y)');
+    addEquation('');
+
+</script>
+
+</body>
+</html>

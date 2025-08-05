@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive 2D Graphing Calculator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        body {
+            display: flex;
+            height: 100vh;
+            background: #f5f5f5;
+            overflow: hidden;
+        }
+
+        #left-panel {
+            width: 30%;
+            min-width: 250px;
+            background: #fff;
+            border-right: 1px solid #ddd;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        #equation-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .equation-row {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            border: 1px solid #eee;
+            border-radius: 5px;
+            background: #fafafa;
+        }
+
+        .equation-row input[type="text"] {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 16px;
+            padding: 5px;
+            background: transparent;
+        }
+
+        .equation-row button {
+            background: #ff4d4f;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            padding: 5px 10px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+
+        .equation-row button:hover {
+            background: #d9363e;
+        }
+
+        #add-equation {
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            padding: 10px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        #add-equation:hover {
+            background: #218838;
+        }
+
+        .slider-container {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 5px;
+        }
+
+        .slider-container label {
+            font-size: 14px;
+            margin-right: 10px;
+        }
+
+        .slider-container input[type="range"] {
+            width: 100%;
+        }
+
+        #right-panel {
+            flex: 1;
+            background: #fff;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column;
+            }
+            #left-panel {
+                width: 100%;
+                height: 40%;
+                overflow-y: auto;
+            }
+            #right-panel {
+                width: 100%;
+                height: 60%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="left-panel">
+        <div id="equation-list"></div>
+        <button id="add-equation">+ Add Equation</button>
+    </div>
+    <div id="right-panel"></div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.4.1/math.js"></script>
+
+    <script>
+        let equations = [];
+        let sliders = {};
+        let unitScale = 50;
+        let offsetX = 0, offsetY = 0;
+        let isDragging = false;
+        let lastMouseX, lastMouseY;
+
+        // p5.js setup
+        function setup() {
+    const panel = document.getElementById('right-panel');
+    let canvas = createCanvas(panel.clientWidth, panel.clientHeight);
+    canvas.parent('right-panel');
+    pixelDensity(2);
+}
+
+
+        function draw() {
+            background(255);
+            translate(width / 2 + offsetX, height / 2 + offsetY);
+            scale(1, -1); // Flip y-axis for standard graph orientation
+            drawGrid();
+            drawAxes();
+            drawEquations();
+        }
+
+        function drawGrid() {
+            stroke(200);
+            strokeWeight(1);
+            let step = 1; // Grid step in graph units
+            let xMin = -width / (2 * unitScale) - offsetX / unitScale;
+            let xMax = width / (2 * unitScale) - offsetX / unitScale;
+            let yMin = -height / (2 * unitScale) - offsetY / unitScale;
+            let yMax = height / (2 * unitScale) - offsetY / unitScale;
+
+            for (let x = Math.floor(xMin / step) * step; x <= xMax; x += step) {
+                line(x * unitScale, yMin * unitScale, x * unitScale, yMax * unitScale);
+            }
+            for (let y = Math.floor(yMin / step) * step; y <= yMax; y += step) {
+                line(xMin * unitScale, y * unitScale, xMax * unitScale, y * unitScale);
+            }
+        }
+
+        function drawAxes() {
+            stroke(0);
+            strokeWeight(2);
+            line(-width / 2 - offsetX, 0, width / 2 - offsetX, 0); // x-axis
+            line(0, -height / 2 - offsetY, 0, height / 2 - offsetY); // y-axis
+        }
+
+        function drawEquations() {
+            let colors = ['#ff4d4f', '#28a745', '#007bff', '#ffca28'];
+            equations.forEach((eq, index) => {
+                if (!eq.active) return;
+                 console.log('Drawing equation:', eq.func);
+                stroke(colors[index % colors.length]);
+                strokeWeight(2);
+                noFill();
+                beginShape();
+                let xMin = -width / (2 * unitScale) - offsetX / unitScale;
+                let xMax = width / (2 * unitScale) - offsetX / unitScale;
+                for (let x = xMin; x <= xMax; x += 0.01) {
+                    let y = evaluateEquation(eq.func, x);
+                    if (isFinite(y)) {
+                        vertex(x * unitScale, y * unitScale);
+                    } else {
+                        endShape();
+                        beginShape();
+                    }
+                }
+                endShape();
+            });
+        }
+
+       function evaluateEquation(func, x) {
+    try {
+        const scope = { x, ...sliders };
+        return math.evaluate(func, scope);
+    } catch (e) {
+        console.error('Error evaluating equation:', e);
+        return NaN;
+    }
+}
+
+
+
+        // Interaction: Zoom and Pan
+        function mouseWheel(event) {
+            let zoomFactor = event.delta > 0 ? 0.9 : 1.1;
+            unitScale *= zoomFactor;
+            unitScale = constrain(unitScale, 10, 200);
+            return false;
+        }
+
+        function mousePressed() {
+            if (mouseX > 0 && mouseX < width && mouseY > 0 && mouseY < height) {
+                isDragging = true;
+                lastMouseX = mouseX;
+                lastMouseY = mouseY;
+            }
+        }
+
+        function mouseReleased() {
+            isDragging = false;
+        }
+
+        function mouseDragged() {
+            if (isDragging) {
+                offsetX += (mouseX - lastMouseX);
+                offsetY += (mouseY - lastMouseY);
+                lastMouseX = mouseX;
+                lastMouseY = mouseY;
+            }
+        }
+
+        // Touch support
+        function touchMoved() {
+            if (touches.length === 1) {
+                offsetX += (touches[0].x - lastMouseX);
+                offsetY += (touches[0].y - lastMouseY);
+                lastMouseX = touches[0].x;
+                lastMouseY = touches[0].y;
+            } else if (touches.length === 2) {
+                let d1 = dist(touches[0].x, touches[0].y, touches[1].x, touches[1].y);
+                let d2 = dist(pmouseX, pmouseY, touches[1].x, touches[1].y);
+                let zoomFactor = d1 > d2 ? 0.99 : 1.01;
+                unitScale *= zoomFactor;
+                unitScale = constrain(unitScale, 10, 200);
+            }
+            return false;
+        }
+
+        // Equation and Slider Management
+        function addEquationRow(equation = '') {
+            let index = equations.length;
+            equations.push({ func: equation, active: true });
+            let row = document.createElement('div');
+            row.className = 'equation-row';
+            row.innerHTML = `
+                <input type="text" placeholder="Enter equation (e.g., sin(x) + a)" value="${equation}">
+                <button onclick="removeEquation(${index})">X</button>
+            `;
+            document.getElementById('equation-list').appendChild(row);
+           let debounceTimeout;
+row.querySelector('input').addEventListener('input', (e) => {
+    equations[index].func = e.target.value;
+    clearTimeout(debounceTimeout);
+    debounceTimeout = setTimeout(() => {
+        interpretEquation(e.target.value, index);
+    }, 500); // wait 500ms after last keystroke
+});
+;
+        }
+
+        function removeEquation(index) {
+            equations[index].active = false;
+            document.getElementById('equation-list').children[index].remove();
+            equations[index] = { func: '', active: false };
+        }
+        let sliderElements = {}; // Map of param → { slider, label }
+
+
+        function addSlider(param, value = 0, min = -10, max = 10) {
+    sliders[param] = value;
+
+    const sliderDiv = document.createElement('div');
+    sliderDiv.className = 'slider-container';
+    sliderDiv.id = `slider-${param}`;
+    sliderDiv.innerHTML = `
+        <label>${param}: <span>${value.toFixed(2)}</span></label>
+        <input type="range" min="${min}" max="${max}" step="0.1" value="${value}">
+        <button style="float: right; background:#dc3545; color:white; border:none; padding:4px 8px; border-radius:3px; margin-left:10px;" onclick="removeSlider('${param}')">✕</button>
+    `;
+
+    const slider = sliderDiv.querySelector('input');
+    const label = sliderDiv.querySelector('span');
+
+    slider.addEventListener('input', () => {
+        sliders[param] = parseFloat(slider.value);
+        label.textContent = sliders[param].toFixed(2);
+    });
+
+    sliderElements[param] = { slider, label };
+
+    document.getElementById('equation-list').appendChild(sliderDiv);
+}
+       async function interpretEquation(equation, index) {
+    try {
+        const node = math.parse(equation);
+        const symbols = new Set();
+
+        node.traverse((n, path, parent) => {
+            if (n.isSymbolNode) {
+                // Only add symbol if it's not 'x' and not used as a function name
+                const isPartOfFunction = parent?.isFunctionNode && parent.fn === n;
+                if (!isPartOfFunction && n.name !== 'x') {
+                    symbols.add(n.name);
+                }
+            }
+        });
+
+        // Remove previously added sliders for this equation (optional)
+        equations[index].func = equation;
+
+        symbols.forEach(param => {
+            if (!(param in sliders)) {
+                addSlider(param);
+            }
+        });
+
+    } catch (e) {
+        // Don’t create sliders on invalid math
+        console.warn('Skipping slider creation due to parse error.');
+    }
+}
+
+
+        async function interpretEquation(equation, index) {
+    try {
+        // Parse the expression using math.js
+        const node = math.parse(equation);
+        const compiled = node.compile();
+
+        // Extract variables (except 'x')
+        const allVars = node.filter(n => n.isSymbolNode).map(n => n.name);
+        const params = [...new Set(allVars.filter(v => v !== 'x'))];
+
+        equations[index].func = equation;
+
+        params.forEach(param => {
+            if (!(param in sliders)) {
+                addSlider(param);
+            }
+        });
+    } catch (e) {
+        console.error('Math.js error:', e);
+    }
+}
+
+
+        function extractParams(equation) {
+            // Simple regex to find variables (excluding 'x')
+            let vars = equation.match(/[a-zA-Z]+/g) || [];
+            return vars.filter(v => v !== 'x' && v !== 'sin' && v !== 'cos' && v !== 'tan' && v !== 'log');
+        }
+
+        // Initialize
+        document.getElementById('add-equation').addEventListener('click', () => addEquationRow());
+        addEquationRow('sin(x)'); // Default equation
+        window.addEventListener('resize', () => {
+    const panel = document.getElementById('right-panel');
+    resizeCanvas(panel.clientWidth, panel.clientHeight);
+});
+
+
+        // Animation loop for smooth parameter updates
+       function animateSliders() {
+    if ('a' in sliders && sliderElements['a']) {
+        sliders['a'] = 2 * Math.sin(frameCount * 0.02);
+        
+        const { slider, label } = sliderElements['a'];
+        slider.value = sliders['a'];
+        label.textContent = sliders['a'].toFixed(2);
+    }
+    requestAnimationFrame(animateSliders);
+}
+
+        animateSliders();
+    </script>
+</body>
+</html>

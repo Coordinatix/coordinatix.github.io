@@ -163,9 +163,9 @@
 <body>
   <div class="header">
     <h2>Coordinatix</h2>
-    <button id="dimensionToggle" class="dimension-toggle" onclick="toggleDimension()">2D</button>
-  </div>
-  <div class="container">
+    <button id="dimensionToggle" class="dimension-toggle" onclick="goTo3D()">3D</button>
+     </div>    
+  <div class="container"> 
     
     <div id="calculator"></div>
   </div>
@@ -201,64 +201,10 @@
       top: 10
     });
     
-    function toggleDimension() {
-      is3D = !is3D;
-      const button = document.getElementById('dimensionToggle');
-      button.textContent = is3D ? '3D' : '2D';
-      button.classList.toggle('active', is3D);
-      
-      const calculatorElement = document.getElementById('calculator');
-      
-      // Switch between calculators
-      if (is3D) {
-        calculator2D.destroy();
-        // Clear the element
-        calculatorElement.innerHTML = '';
-        calculator3D = Desmos.Calculator3D(calculatorElement, {
-          keypad: true,
-          expressions: true,
-          settingsMenu: false,
-          zoomButtons: true,
-          lockViewport: false,
-          border: false,
-          autosize: true,
-          expressionsTopbar: true,
-          showControlPanel: true,
-          defaultState: {
-            showAxis: true,
-            showGrid: true,
-            showAxisNumbers: true,
-            showLabel: true,
-            xAxisLabel: 'x',
-            yAxisLabel: 'y',
-            zAxisLabel: 'z'
-          }
-        });
-      } else {
-        if (calculator3D) {
-          calculator3D.destroy();
-        }
-        // Clear the element
-        calculatorElement.innerHTML = '';
-        calculator2D = Desmos.GraphingCalculator(calculatorElement, {
-          keypad: true,
-          expressions: true,
-          settingsMenu: false,
-          zoomButtons: true,
-          lockViewport: false,
-          border: false,
-          expressionsCollapsed: false,
-          autosize: true,
-          expressionsTopbar: true
-        });
-        calculator2D.setMathBounds({
-          left: -10,
-          right: 10,
-          bottom: -10,
-          top: 10
-        });
-      }
-    }
+    function goTo3D() {
+  window.location.href = "3d.html";
+}
+
 
     // Set initial 2D bounds
     calculator2D.setMathBounds({
