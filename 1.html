@@ -4,9 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-  <title>Coordinatix 3D - Shader Based</title>
+  <title>Coordinatix 3D - Shader Based with Shadows</title>
   <style>
-    /* --- CSS unchanged from your original code --- */
+    /* CSS remains unchanged */
     * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
     body, html { width: 100%; height: 100%; overflow: auto; }
     #canvas-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 0; background-color: #000; overflow: hidden; }
@@ -39,7 +39,7 @@
     const equations = [];
     const meshes = [];
     const range = 10;
-    const resolution = 2000;
+    const resolution = 1000; // Reduced for performance with shadows
 
     function init() {
       scene = new THREE.Scene();
@@ -48,17 +48,45 @@
 
       renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.shadowMap.enabled = true; // Enable shadow mapping
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Soft shadows for better realism
       document.getElementById('canvas-container').appendChild(renderer.domElement);
 
       controls = new THREE.OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
 
+      // Add a ground plane to receive shadows
+      const groundGeometry = new THREE.PlaneGeometry(20, 20);
+      const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x333333, side: THREE.DoubleSide });
+      groundMaterial.receiveShadow = true; // Ground receives shadows
+      const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+      ground.rotation.x = Math.PI / 2;
+      ground.visible = false;
+      ground.position.y = -5; // Place below the graph
+      scene.add(ground);
+
       scene.add(new THREE.AxesHelper(5));
       scene.add(new THREE.GridHelper(20, 20));
-      scene.add(new THREE.AmbientLight(0xffffff, 0.4));
-      const light = new THREE.DirectionalLight(0xffffff, 0.8);
+
+      // Ambient light for soft base illumination
+      scene.add(new THREE.AmbientLight(0xffffff, 0.3));
+
+      // Directional light for shadows
+      const light = new THREE.DirectionalLight(0xffffff, 0.7);
       light.position.set(10, 10, 10);
+      light.castShadow = true; // Enable shadow casting
+      light.shadow.mapSize.width = 1024; // Higher resolution shadow map
+      light.shadow.mapSize.height = 1024;
+      light.shadow.camera.near = 0.5;
+      light.shadow.camera.far = 50;
+      light.shadow.camera.left = -15;
+      light.shadow.camera.right = 15;
+      light.shadow.camera.top = 15;
+      light.shadow.camera.bottom = -15;
       scene.add(light);
+
+      // Optional: Add helper to visualize light's shadow camera
+      // scene.add(new THREE.CameraHelper(light.shadow.camera));
 
       window.addEventListener('resize', () => {
         camera.aspect = window.innerWidth / window.innerHeight;
@@ -74,25 +102,61 @@
         vertexShader: `
           uniform float range;
           varying vec3 vColor;
+          varying vec3 vPosition;
+          varying vec3 vNormal;
+
           void main() {
             float x = position.x;
             float y = position.y;
             float z = ${equationGLSL};
+
+            vPosition = vec3(x, y, z);
+
+            // Calculate approximate normals using finite differences
+            float delta = 0.01;
+            float z1 = ${equationGLSL.replace(/x/g, '(x + delta)')};
+            float z2 = ${equationGLSL.replace(/y/g, '(y + delta)')};
+            vec3 tangentX = vec3(delta, 0.0, z1 - z);
+            vec3 tangentY = vec3(0.0, delta, z2 - z);
+            vNormal = normalize(cross(tangentX, tangentY));
+
             vColor = vec3(${color.r.toFixed(2)}, ${color.g.toFixed(2)}, ${color.b.toFixed(2)});
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(x, y, z, 1.0);
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(vPosition, 1.0);
           }
         `,
         fragmentShader: `
           varying vec3 vColor;
+          varying vec3 vNormal;
+          varying vec3 vPosition;
+
+          uniform vec3 lightPosition;
+
           void main() {
-            gl_FragColor = vec4(vColor, 1.0);
+            vec3 lightDir = normalize(lightPosition - vPosition);
+            float diff = max(dot(normalize(vNormal), lightDir), 0.0);
+
+            // Enhance diffuse lighting with sharper falloff
+            diff = pow(diff, 1.5); // Slightly sharper than before
+
+            // Add specular highlight for more realism
+            vec3 viewDir = normalize(-vPosition); // Assuming camera at origin in view space
+            vec3 halfwayDir = normalize(lightDir + viewDir);
+            float spec = pow(max(dot(vNormal, halfwayDir), 0.0), 32.0); // Shininess factor
+
+            float ambient = 0.2; // Increased ambient for visibility
+            float specular = 0.3; // Specular intensity
+            vec3 shadedColor = vColor * (ambient + (1.0 - ambient) * diff) + vec3(1.0) * spec * specular;
+
+            gl_FragColor = vec4(shadedColor, 1.0);
           }
         `,
         uniforms: {
           range: { value: range },
+          lightPosition: { value: new THREE.Vector3(10, 10, 10) }
         },
         side: THREE.DoubleSide,
-        wireframe: false
+        transparent: false, // Disable transparency for better shadow rendering
+        shadowSide: THREE.DoubleSide, // Enable shadows on both sides
       });
     }
 
@@ -128,6 +192,8 @@
         const material = createShaderMaterial(equationGLSL, color);
 
         const mesh = new THREE.Mesh(geometry, material);
+        mesh.castShadow = true; // Mesh casts shadows
+        mesh.receiveShadow = true; // Mesh receives shadows
         meshes[index] = mesh;
         scene.add(mesh);
       } catch (e) {
@@ -151,7 +217,16 @@
 
       const removeBtn = document.createElement('button');
       removeBtn.className = 'remove-btn';
-      removeBtn.innerHTML = '<i class="fas fa-times"></i>';
+
+      const iconImg = document.createElement('img');
+      iconImg.src = 'images/svg.svg'; // ✅ Put correct path here
+      iconImg.alt = 'Delete';
+      iconImg.width = 16;
+      iconImg.height = 16;
+      iconImg.style.pointerEvents = 'none';
+
+removeBtn.appendChild(iconImg);
+
 
       removeBtn.onclick = () => {
         equations[index] = null;
@@ -201,5 +276,3 @@
   </script>
 </body>
 </html>
-
-

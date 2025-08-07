@@ -70,31 +70,57 @@
     }
 
     function createShaderMaterial(equationGLSL, color) {
-      return new THREE.ShaderMaterial({
-        vertexShader: `
-          uniform float range;
-          varying vec3 vColor;
-          void main() {
-            float x = position.x;
-            float y = position.y;
-            float z = ${equationGLSL};
-            vColor = vec3(${color.r.toFixed(2)}, ${color.g.toFixed(2)}, ${color.b.toFixed(2)});
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(x, y, z, 1.0);
-          }
-        `,
-        fragmentShader: `
-          varying vec3 vColor;
-          void main() {
-            gl_FragColor = vec4(vColor, 1.0);
-          }
-        `,
-        uniforms: {
-          range: { value: range },
-        },
-        side: THREE.DoubleSide,
-        wireframe: false
-      });
-    }
+  return new THREE.ShaderMaterial({
+    vertexShader: `
+      uniform float range;
+      varying vec3 vColor;
+      varying vec3 vPosition;
+      varying vec3 vNormal;
+
+      void main() {
+        float x = position.x;
+        float y = position.y;
+        float z = ${equationGLSL};
+
+        vPosition = vec3(x, y, z);
+
+        // Simple upward normal for now
+        vNormal = normalize(vec3(0.0, 0.0, 1.0));
+
+        vColor = vec3(${color.r.toFixed(2)}, ${color.g.toFixed(2)}, ${color.b.toFixed(2)});
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(vPosition, 1.0);
+      }
+    `,
+    fragmentShader: `
+      varying vec3 vColor;
+      varying vec3 vNormal;
+      varying vec3 vPosition;
+
+      uniform vec3 lightPosition;
+
+      void main() {
+        vec3 lightDir = normalize(lightPosition - vPosition);
+        float diff = max(dot(normalize(vNormal), lightDir), 0.0);
+
+        // Sharpen the lighting and deepen shadows
+        diff = pow(diff, 2.0); // Higher = sharper & darker shadows (try 2.5 or 3.0 if needed)
+
+        float ambient = 0.08; // Minimum brightness so shadows aren't fully black
+        vec3 shadedColor = vColor * (ambient + (1.0 - ambient) * diff);
+
+        gl_FragColor = vec4(shadedColor, 1.0);
+      }
+    `,
+    uniforms: {
+      range: { value: range },
+      lightPosition: { value: new THREE.Vector3(10, 10, 10) }
+    },
+    side: THREE.DoubleSide,
+    wireframe: false
+  });
+}
+
+
 
     function convertToGLSL(expr) {
       return expr
@@ -202,4 +228,4 @@
 </body>
 </html>
 
-
+    
