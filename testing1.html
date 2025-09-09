@@ -146,11 +146,12 @@ button:hover {
     <script src="https://cdn.jsdelivr.net/npm/three@0.134/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/10.6.4/math.min.js"></script>
 <script>
-    let scene, camera, renderer, controls;
+    let scene, camera, renderer, controls, typingTimer;
     const equations = [];
     const meshes = [];
-    const resolution = 700;
+    const resolution = 600;
     const range = 10;
+    const typingDelay = 500; // milliseconds
 
     function init() {
         scene = new THREE.Scene();
@@ -228,15 +229,23 @@ button:hover {
 
 
   input.oninput = () => {
-  updateEquation(index, input.value);
+  // Always show what the user typed immediately
+  const value = input.value;
 
+  // If last row and not empty → add a new row
   const inputs = document.querySelectorAll('.equation-input');
   const isLast = input === inputs[inputs.length - 1];
-
-  if (isLast && input.value.trim() !== '') {
+  if (isLast && value.trim() !== '') {
     addEquation('');
   }
+
+  // Debounce heavy math update
+  clearTimeout(typingTimer);
+  typingTimer = setTimeout(() => {
+    updateEquation(index, value);
+  }, typingDelay);
 };
+
 
 
 
