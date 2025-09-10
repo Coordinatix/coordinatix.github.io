@@ -6,6 +6,10 @@ An interactive web application that leverages the Desmos Calculator API to creat
 
 Coordinatix is a web-based tool that combines the power of Desmos' calculator and 3D visualization capabilities to provide an interactive mathematical experience. The application is designed to be responsive and touch-friendly, making it accessible across various devices.
 
+## Future steps
+
+In recent future I am hoping to integrate AI and a better math parser to render complex wave equations for physics students. For now I am trying to fix the resolution issue by implementing shader based rendering - it's almost done but can't figure out how to create shadows !! (working on it)
+
 ## Features
 
 - Integration with Desmos Calculator API v1.7
@@ -37,6 +41,6 @@ This project is licensed under the terms included in the LICENSE file.
 
 ## Acknowledgments
 
-- [Desmos](https://www.desmos.com/) for their excellent calculator API
+- [Desmos](https://www.desmos.com/) for their excellent 2D calculator API
 - Google Fonts for the Orbitron font family
 

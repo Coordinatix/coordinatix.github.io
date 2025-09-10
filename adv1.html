@@ -1,10 +1,24 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-      // Soft upper right corner lighting setup with lighter shadows
+      scene.add(new THREE.AmbientLight(0xffffff, 0.45));
+      
+      // Softer main light from upper-right corner
+      const cornerLight = new THREE.DirectionalLight(0xffffff, 0.5);
+      cornerLight.position.set(12, 10, 8);
+      cornerLight.castShadow = true;
+      cornerLight.shadow.mapSize.width = 2048;
+      cornerLight.shadow.mapSize.height = 2048;
+      cornerLight.shadow.radius = 2.5; // Increased shadow softening
+      scene.add(cornerLight);
+      
+      // Stronger fill light for lighter shadows
+      const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
+      fillLight.position.set(-2, 0, 2);
+      scene.add(fillLight);ame="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-  <title>Coordinatix 3D - Shader Based</title>
+  <title>Coordinatix 3D </title>
   <style>
     /* --- CSS unchanged from your original code --- */
     * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
@@ -33,6 +47,8 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.134/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.4.0/math.min.js"></script>
+
 
   <script>
     let scene, camera, renderer, controls;
@@ -46,8 +62,13 @@
       camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
       camera.position.set(5, 5, 10);
 
-      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer = new THREE.WebGLRenderer({ 
+        antialias: true,
+        alpha: true
+      });
       renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
       document.getElementById('canvas-container').appendChild(renderer.domElement);
 
       controls = new THREE.OrbitControls(camera, renderer.domElement);
@@ -55,10 +76,22 @@
 
       scene.add(new THREE.AxesHelper(5));
       scene.add(new THREE.GridHelper(20, 20));
-      scene.add(new THREE.AmbientLight(0xffffff, 0.4));
-      const light = new THREE.DirectionalLight(0xffffff, 0.8);
-      light.position.set(10, 10, 10);
-      scene.add(light);
+      // Soft upper right corner lighting setup
+      scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+      
+      // Softer main light from upper-right corner
+      const cornerLight = new THREE.DirectionalLight(0xffffff, 0.75);
+      cornerLight.position.set(12, 10, 8);
+      cornerLight.castShadow = true;
+      cornerLight.shadow.mapSize.width = 2048;
+      cornerLight.shadow.mapSize.height = 2048;
+      cornerLight.shadow.radius = 2; // Add some shadow softening
+      scene.add(cornerLight);
+      
+      // Slightly stronger fill light for softer shadows
+      const fillLight = new THREE.DirectionalLight(0xffffff, 0.15);
+      fillLight.position.set(-2, 0, 2);
+      scene.add(fillLight);
 
       window.addEventListener('resize', () => {
         camera.aspect = window.innerWidth / window.innerHeight;
@@ -69,52 +102,95 @@
       animate();
     }
 
-    function createShaderMaterial(equationGLSL, color) {
+    // Converts a math.js AST to GLSL-safe code
+function mathjsToGLSL(node) {
+  switch (node.type) {
+    case 'SymbolNode':
+      if (['x', 'y', 'z', 't'].includes(node.name)) return node.name;
+      throw new Error(`Unsupported variable: ${node.name}`);
+    case 'ConstantNode':
+      // Ensure all numbers become floats in GLSL (e.g., 2 → 2.0)
+      if (typeof node.value === 'number') {
+    return node.value.toString().includes('.') ? node.value : `${node.value}.0`;
+      }
+       return node.value;
+
+    case 'OperatorNode':
+      const args = node.args.map(mathjsToGLSL);
+      switch (node.op) {
+        case '+': return `${args[0]} + ${args[1]}`;
+        case '-': return `${args[0]} - ${args[1]}`;
+        case '*': return `${args[0]} * ${args[1]}`;
+        case '/': return `${args[0]} / ${args[1]}`;
+        case '^': return `pow(${args[0]}, ${args[1]})`;
+      }
+      throw new Error(`Unsupported operator: ${node.op}`);
+    case 'FunctionNode':
+      const fn = node.name;
+      const params = node.args.map(mathjsToGLSL).join(', ');
+      if (['sin','cos','tan','exp','log','sqrt','abs'].includes(fn)) {
+        return `${fn}(${params})`;
+      }
+      throw new Error(`Unsupported function: ${fn}`);
+    default:
+      throw new Error(`Unsupported node type: ${node.type}`);
+  }
+}
+
+// Safe wrapper to parse & convert a user equation into GLSL
+function safeToGLSL(exprString) {
+  const node = math.parse(exprString);
+  return mathjsToGLSL(node);
+}
+
+
+function createShaderMaterial(equationGLSL, color) {
   return new THREE.ShaderMaterial({
     vertexShader: `
-      uniform float range;
       varying vec3 vColor;
       varying vec3 vPosition;
       varying vec3 vNormal;
 
+      float f(float x, float y) {
+        return ${equationGLSL};
+      }
+
       void main() {
         float x = position.x;
         float y = position.y;
-        float z = ${equationGLSL};
-
+        float z = f(x, y);
+        
+        // Calculate surface normal for shading
+        float eps = 0.01;
+        float dx = (f(x + eps, y) - f(x - eps, y)) / (2.0 * eps);
+        float dy = (f(x, y + eps) - f(x, y - eps)) / (2.0 * eps);
+        vec3 normal = normalize(vec3(-dx, -dy, 1.0));
+        
         vPosition = vec3(x, y, z);
-
-        // Simple upward normal for now
-        vNormal = normalize(vec3(0.0, 0.0, 1.0));
-
+        vNormal = normal;
         vColor = vec3(${color.r.toFixed(2)}, ${color.g.toFixed(2)}, ${color.b.toFixed(2)});
+
         gl_Position = projectionMatrix * modelViewMatrix * vec4(vPosition, 1.0);
       }
     `,
     fragmentShader: `
       varying vec3 vColor;
-      varying vec3 vNormal;
       varying vec3 vPosition;
-
-      uniform vec3 lightPosition;
+      varying vec3 vNormal;
 
       void main() {
-        vec3 lightDir = normalize(lightPosition - vPosition);
-        float diff = max(dot(normalize(vNormal), lightDir), 0.0);
-
-        // Sharpen the lighting and deepen shadows
-        diff = pow(diff, 2.0); // Higher = sharper & darker shadows (try 2.5 or 3.0 if needed)
-
-        float ambient = 0.08; // Minimum brightness so shadows aren't fully black
-        vec3 shadedColor = vColor * (ambient + (1.0 - ambient) * diff);
-
+        // Soft upper right corner light
+        vec3 cornerLight = normalize(vec3(0.8, 0.6, 0.4));
+        float diffuse = max(dot(vNormal, cornerLight), 0.0);
+        
+        // Soften the lighting transition
+        diffuse = smoothstep(0.0, 1.0, diffuse);
+        
+        // Create lighter shadows with more subtle transitions
+        vec3 shadedColor = vColor * (0.45 + 0.55 * diffuse);
         gl_FragColor = vec4(shadedColor, 1.0);
       }
     `,
-    uniforms: {
-      range: { value: range },
-      lightPosition: { value: new THREE.Vector3(10, 10, 10) }
-    },
     side: THREE.DoubleSide,
     wireframe: false
   });
@@ -122,44 +198,41 @@
 
 
 
-    function convertToGLSL(expr) {
-      return expr
-        .replace(/Math\./g, '')
-        .replace(/sin/g, 'sin')
-        .replace(/cos/g, 'cos')
-        .replace(/tan/g, 'tan')
-        .replace(/exp/g, 'exp')
-        .replace(/log/g, 'log')
-        .replace(/sqrt/g, 'sqrt')
-        .replace(/abs/g, 'abs');
-    }
 
     function updateEquation(index, text) {
-      equations[index].text = text.trim();
-      document.getElementById('error').innerText = '';
+  let equationGLSL;
+  try {
+    equationGLSL = safeToGLSL(text.trim()); // ✅ parse & convert properly
+  } catch (err) {
+    document.getElementById('error').innerText = `Invalid equation: ${err.message}`;
+    return;
+  }
 
-      if (meshes[index]) {
-        scene.remove(meshes[index]);
-        meshes[index].geometry.dispose();
-        meshes[index].material.dispose();
-        meshes[index] = null;
-      }
+  document.getElementById('error').innerText = '';
 
-      if (!text.trim()) return;
+  // remove old mesh if it exists
+  if (meshes[index]) {
+    scene.remove(meshes[index]);
+    meshes[index].geometry.dispose();
+    meshes[index].material.dispose();
+    meshes[index] = null;
+  }
 
-      try {
-        const equationGLSL = convertToGLSL(text.trim());
-        const geometry = new THREE.PlaneGeometry(range * 2, range * 2, resolution, resolution);
-        const color = new THREE.Color(equations[index].color);
-        const material = createShaderMaterial(equationGLSL, color);
+  if (!text.trim()) return;
 
-        const mesh = new THREE.Mesh(geometry, material);
-        meshes[index] = mesh;
-        scene.add(mesh);
-      } catch (e) {
-        document.getElementById('error').innerText = `Error in equation ${index + 1}: ${e.message}`;
-      }
-    }
+  try {
+    const geometry = new THREE.PlaneGeometry(range * 2, range * 2, resolution, resolution);
+    const color = new THREE.Color(equations[index].color);
+    const material = createShaderMaterial(equationGLSL, color); // ✅ use parsed GLSL here
+
+    const mesh = new THREE.Mesh(geometry, material);
+    meshes[index] = mesh;
+    scene.add(mesh);
+  } catch (e) {
+    document.getElementById('error').innerText = `Error in equation ${index + 1}: ${e.message}`;
+  }
+}
+
 
     function addEquation(equationText = '') {
       const container = document.getElementById('equations');
@@ -177,7 +250,7 @@
 
       const removeBtn = document.createElement('button');
       removeBtn.className = 'remove-btn';
-      removeBtn.innerHTML = '<i class="fas fa-times"></i>';
+      removeBtn.innerHTML = `<img src="images/svg.svg" alt="Delete" width="16" height="16">`;
 
       removeBtn.onclick = () => {
         equations[index] = null;
