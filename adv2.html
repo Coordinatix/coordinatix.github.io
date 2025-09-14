@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale  <script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link href="https://fonts.googleapis.com/css2?family=STIX+Two+Math&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.css">
-  <title>Coordinatix 3D</title>
+  <title>Coordinatix 3D </title>
   <style>
-    /* CSS remains unchanged from your original code */
+    /* --- CSS unchanged from your original code --- */
     * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
     body, html { width: 100%; height: 100%; overflow: auto; }
     #canvas-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 0; background-color: #000; overflow: hidden; }
@@ -19,7 +19,7 @@
     .equation-input { 
       flex: 1; 
       padding: 0; 
-      border: 1px solid rgba(255,255,255,0.4) !important; 
+      border: 1px solid rgba(255, 255, 255, 0.4) !important; 
       border-radius: 6px 0 0 6px; 
       background: rgba(255, 255, 255, 0.05); 
       color: #ffffff; 
@@ -41,6 +41,7 @@
     #error { color: #ff8888; font-size: 0.9em; margin-top: 10px; }
     @media (max-width: 768px) { #sidebar { width: 90%; left: 5%; } }
 
+    /* MathQuill styling that preserves your UI */
     .equation-input.empty::before {
       content: attr(data-placeholder);
       color: rgba(255, 255, 255, 0.5);
@@ -58,7 +59,7 @@
       background: transparent !important;
       border: none !important;
       box-shadow: none !important;
-      width: 100% !important;
+      width: 100%  !important;
       padding: 0 !important;
       position: relative !important;
       left: auto !important;
@@ -91,27 +92,33 @@
       font-size: 14px !important;
       color: inherit;
     }
-
+    
+    /* Make sure the border shows through */
     .equation-input .mq-math-mode {
       border: none !important;
       box-shadow: none !important;
     }
+     
+    /* Make exponents rise higher and look smaller */
+.mq-sup {
+  vertical-align: super !important;
+  font-size: 0.7em !important; /* make it smaller */
+  position: relative !important;
+  top: -0.3em !important;      /* push it up */
+}
 
-    .mq-sup {
-      vertical-align: super !important;
-      font-size: 0.7em !important;
-      position: relative !important;
-      top: -0.3em !important;
-    }
 
+    /* Ensure MathQuill doesn't overflow */
     .equation-input .mq-root-block {
       padding: 10px !important;
     }
-
+      
     .equation-input:focus-within {
-      box-shadow: 0 0 8px 2px #dce7e567;
-      border-radius: 6px;
-    }
+      box-shadow: 0 0 8px 2px #dce7e567; 
+     border-radius: 6px;
+     
+}
+
 
     .mq-cursor {
       border-left: 1px solid white !important;
@@ -136,45 +143,14 @@
     var MQ = MathQuill.getInterface(2);
   </script>
 
+
   <script>
     let scene, camera, renderer, controls, typingTimer;
     const equations = [];
     const meshes = [];
     const range = 10;
-    const resolution = 1000; // Reduced for better performance
-    const typingDelay = 100;
-
-    // Enhanced preprocessing to handle implicit multiplication and LaTeX cleanup
-      function preprocess(expr) {
-  if (!expr) return '';
-
-  // List of protected function names
-  const protectedFunctions = ['sin', 'cos', 'tan', 'sqrt', 'log', 'pi', 'e'];
-
-  let cleaned = expr.replace(/\s+/g, ''); // Remove spaces
-
-  // Convert LaTeX commands to normal functions
-  cleaned = cleaned
-    .replace(/\\pi/g, 'pi')
-    .replace(/\\e/g, 'e')
-    .replace(/\\sin/g, 'sin')
-    .replace(/\\cos/g, 'cos')
-    .replace(/\\tan/g, 'tan')
-    .replace(/\\sqrt/g, 'sqrt')
-    .replace(/\\log/g, 'log')
-    .replace(/\\frac{([^}]*)}{([^}]*)}/g, '($1)/($2)');
-
-  // Implicit multiplication rules: only for variables x or y, excluding protected functions
-  cleaned = cleaned
-    .replace(/(\d)([xy])(?!\w)/g, '$1*$2')    // 2x → 2*x, but not in sin2
-    .replace(/([xy])(\d)/g, '$1*$2')          // x2 → x*2
-    .replace(/([xy])\(/g, '$1*(')             // x( → x*(
-    .replace(/\)([xy\d])/g, ')*$1')           // )(x or y or number → )*x etc.
-    .replace(/\)\(/g, ')*(')                  // )(... → )*(
-    .replace(/(\d)\(/g, '$1*(');              // 2( → 2*(
-
-  return cleaned;
-}
+    const resolution = 200; // Reduced for better performance
+    const typingDelay = 100; // milliseconds
 
     // Check if parentheses are balanced
     function isBalanced(str) {
@@ -189,31 +165,24 @@
       return stack.length === 0;
     }
 
-    // Initialize Three.js scene
+    // Preprocess equation for implicit multiplication
+    function preprocess(expr) {
+      return expr
+        .replace(/(\d)([a-zA-Z])/g, '$1*$2')   // 2x -> 2*x
+        .replace(/([a-zA-Z])(\d)/g, '$1*$2')   // x2 -> x*2
+        .replace(/\)([a-zA-Z\d(])/g, ')*$1')   // )x -> )*x, )(  -> )*(
+        .replace(/([a-zA-Z\d])\(/g, '$1*(');   // x( -> x*(
+    }
+
     function init() {
-      console.log('Initializing Three.js...');
-      // Check WebGL compatibility
-      try {
-        const canvas = document.createElement('canvas');
-        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-        if (!gl) {
-          throw new Error('WebGL not supported');
-        }
-        console.log('WebGL is supported');
-      } catch (e) {
-        console.error('WebGL Error:', e);
-        document.getElementById('error').innerText = 'WebGL not supported in your browser';
-        return;
-      }
-
       scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x000000);
-      console.log('Scene created');
       camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-      camera.position.set(15, 15, 15);
-      camera.lookAt(0, 0, 0);
+      camera.position.set(5, 5, 10);
 
-      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer = new THREE.WebGLRenderer({ 
+        antialias: true,
+        alpha: true
+      });
       renderer.setSize(window.innerWidth, window.innerHeight);
       renderer.shadowMap.enabled = true;
       renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -224,14 +193,19 @@
 
       scene.add(new THREE.AxesHelper(5));
       scene.add(new THREE.GridHelper(20, 20));
+      // Soft upper right corner lighting setup
       scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+      
+      // Softer main light from upper-right corner
       const cornerLight = new THREE.DirectionalLight(0xffffff, 0.75);
       cornerLight.position.set(12, 10, 8);
       cornerLight.castShadow = true;
       cornerLight.shadow.mapSize.width = 2048;
       cornerLight.shadow.mapSize.height = 2048;
-      cornerLight.shadow.radius = 2;
+      cornerLight.shadow.radius = 2; // Add some shadow softening
       scene.add(cornerLight);
+      
+      // Slightly stronger fill light for softer shadows
       const fillLight = new THREE.DirectionalLight(0xffffff, 0.15);
       fillLight.position.set(-2, 0, 2);
       scene.add(fillLight);
@@ -245,11 +219,11 @@
       animate();
     }
 
-    // Enhanced mathjs to GLSL converter with improved trig support
-    function mathjsToGLSL(node) {
+    // Converts a math.js AST to GLSL-safe code
+function mathjsToGLSL(node) {
   switch (node.type) {
     case 'SymbolNode':
-      if (['x','y'].includes(node.name)) return node.name;
+      if (['x', 'y', 'z', 't'].includes(node.name)) return node.name;
       if (node.name === 'pi') return '3.14159265359';
       if (node.name === 'e') return '2.71828182846';
       throw new Error(`Unsupported variable: ${node.name}`);
@@ -264,187 +238,151 @@
         case '+': return `(${a} + ${b})`;
         case '-': return `(${a} - ${b})`;
         case '*': return `(${a} * ${b})`;
-        case '/': return `(${a} / (${b} != 0.0 ? ${b} : 1e-10))`;
+        case '/': return `(${a} / ${b})`;
         case '^': return `pow(${a}, ${b})`;
         default: throw new Error(`Unsupported operator: ${node.op}`);
       }
 
-    case 'FunctionNode':
-      const fn = node.fn.name?.toLowerCase() || node.name?.toLowerCase();
+    case 'FunctionNode': {
+      const fn = node.fn.name;   // ✅ use fn.name instead of node.name
       const args = node.args.map(mathjsToGLSL).join(', ');
-
       const supported = {
-        sin:'sin', cos:'cos', tan:'tan',
-        asin:'asin', acos:'acos', atan:'atan',
-        sinh:'sinh', cosh:'cosh', tanh:'tanh',
-        exp:'exp', log:'log', sqrt:'sqrt',
-        abs:'abs', floor:'floor', ceil:'ceil',
-        min:'min', max:'max'
+        sin: 'sin', cos: 'cos', tan: 'tan',
+        asin: 'asin', acos: 'acos', atan: 'atan', atan2: 'atan',
+        sinh: 'sinh', cosh: 'cosh', tanh: 'tanh',
+        exp: 'exp', log: 'log', sqrt: 'sqrt', abs: 'abs'
       };
-
       if (supported[fn]) return `${supported[fn]}(${args})`;
-
-      if (fn === 'log10') return `(log(${args})/log(10.0))`;
-      if (fn === 'log2') return `(log(${args})/log(2.0))`;
-
       throw new Error(`Unsupported function: ${fn}`);
-
-    case 'ParenthesisNode':
-      return `(${mathjsToGLSL(node.content)})`;
+    }
 
     default:
       throw new Error(`Unsupported node type: ${node.type}`);
   }
 }
 
-
-    // Safe wrapper for GLSL conversion with enhanced logging
-    function safeToGLSL(exprString) {
-  if (!exprString.trim()) return '0.0';
+// Safe wrapper to parse & convert a user equation into GLSL
+function safeToGLSL(exprString) {
+  if (!exprString.trim()) return '';
   try {
     const processedExpr = preprocess(exprString);
-    if (!processedExpr) throw new Error('Expression is empty after preprocessing');
-
-    const scope = {
-  sin: Math.sin,
-  cos: Math.cos,
-  tan: Math.tan,
-  asin: Math.asin,
-  acos: Math.acos,
-  atan: Math.atan,
-  sinh: Math.sinh,
-  cosh: Math.cosh,
-  tanh: Math.tanh,
-  log: Math.log,
-  sqrt: Math.sqrt,
-  abs: Math.abs,
-  min: Math.min,
-  max: Math.max,
-  pi: Math.PI,
-  e: Math.E
-};
-
-// Parse with mathjs including standard functions
-const node = math.parse(processedExpr, scope);
-
-    const vars = node.filter(n => n.type === 'SymbolNode' && !['x','y','pi','e'].includes(n.name));
-    if (vars.length > 0) throw new Error(`Unsupported variables found: ${vars.map(v=>v.name).join(', ')}`);
-
+    const node = math.parse(processedExpr);
     return mathjsToGLSL(node);
   } catch (err) {
+    console.error("GLSL conversion error:", err);
     throw new Error(`Invalid equation: ${err.message}`);
   }
 }
 
 
-    // Create shader material with division by zero protection
-    function createShaderMaterial(equationGLSL, color) {
-      return new THREE.ShaderMaterial({
-        vertexShader: `
-          varying vec3 vColor;
-          varying vec3 vPosition;
-          varying vec3 vNormal;
+function createShaderMaterial(equationGLSL, color) {
+  return new THREE.ShaderMaterial({
+    vertexShader: `
+      varying vec3 vColor;
+      varying vec3 vPosition;
+      varying vec3 vNormal;
 
-          float f(float x, float y) {
-            return ${equationGLSL};
-          }
+      float f(float x, float y) {
+        return ${equationGLSL};
+      }
 
-          void main() {
-            float x = position.x;
-            float y = position.y;
-            float z = f(x, y);
-            
-            // More permissive clamping
-            z = clamp(z, -1000.0, 1000.0);
+      void main() {
+        float x = position.x;
+        float y = position.y;
+        float z = f(x, y);
+        
+        // Calculate surface normal for shading
+        float eps = 0.01;
+        float dx = (f(x + eps, y) - f(x - eps, y)) / (2.0 * eps);
+        float dy = (f(x, y + eps) - f(x, y - eps)) / (2.0 * eps);
+        vec3 normal = normalize(vec3(-dx, -dy, 1.0));
+        
+        vPosition = vec3(x, y, z);
+        vNormal = normal;
+        vColor = vec3(${color.r.toFixed(2)}, ${color.g.toFixed(2)}, ${color.b.toFixed(2)});
 
-            // Calculate surface normal for shading
-            float eps = 0.01;
-            float dx = (f(x + eps, y) - f(x - eps, y)) / (2.0 * eps);
-            float dy = (f(x, y + eps) - f(x, y - eps)) / (2.0 * eps);
-            vec3 normal = normalize(vec3(-dx, -dy, 1.0));
-            
-            vPosition = vec3(x, y, z);
-            vNormal = normal;
-            vColor = vec3(${color.r.toFixed(2)}, ${color.g.toFixed(2)}, ${color.b.toFixed(2)});
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(vPosition, 1.0);
+      }
+    `,
+    fragmentShader: `
+      varying vec3 vColor;
+      varying vec3 vPosition;
+      varying vec3 vNormal;
 
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(vPosition, 1.0);
-          }
-        `,
-        fragmentShader: `
-          varying vec3 vColor;
-          varying vec3 vPosition;
-          varying vec3 vNormal;
+      void main() {
+        // Soft upper right corner light
+        vec3 cornerLight = normalize(vec3(0.8, 0.6, 0.4));
+        float diffuse = max(dot(vNormal, cornerLight), 0.0);
+        
+        // Soften the lighting transition
+        diffuse = smoothstep(0.0, 1.0, diffuse);
+        
+        // Create lighter shadows with more subtle transitions
+        vec3 shadedColor = vColor * (0.45 + 0.55 * diffuse);
+        gl_FragColor = vec4(shadedColor, 1.0);
+      }
+    `,
+    side: THREE.DoubleSide,
+    wireframe: false
+  });
+}
 
-          void main() {
-            vec3 cornerLight = normalize(vec3(0.8, 0.6, 0.4));
-            float diffuse = max(dot(vNormal, cornerLight), 0.0);
-            diffuse = smoothstep(0.0, 1.0, diffuse);
-            vec3 shadedColor = vColor * (0.45 + 0.55 * diffuse);
-            gl_FragColor = vec4(shadedColor, 1.0);
-          }
-        `,
-        side: THREE.DoubleSide,
-        wireframe: false
-      });
-    }
 
-    // Update equation rendering
+
+
     function updateEquation(index, text) {
-      console.log('updateEquation called for index:', index, 'with text:', text);
-      
-      // Clear error display
-      document.getElementById('error').innerText = '';
-      
-      // Remove existing mesh if present
-      if (meshes[index]) {
-        scene.remove(meshes[index]);
-        meshes[index].geometry.dispose();
-        meshes[index].material.dispose();
-        meshes[index] = null;
-        console.log('Removed existing mesh');
-      }
-      
-      // Handle empty text or missing equation data
-      if (!text?.trim() || !equations[index]) {
-        console.log('Empty equation or missing data, skipping render');
-        return;
-      }
-
-      let equationGLSL;
-      try {
-        equationGLSL = safeToGLSL(text.trim());
-      } catch (err) {
-        document.getElementById('error').innerText = `Invalid equation: ${err.message}`;
-        return;
-      }
-
-      try {
-        console.log('Creating mesh with GLSL:', equationGLSL);
-        const geometry = new THREE.PlaneGeometry(range * 2, range * 2, resolution, resolution);
-        console.log('Geometry created:', geometry);
-        
-        // Safely get color with fallback
-        const color = new THREE.Color(equations[index]?.color || 0xffffff);
-        console.log('Creating material with color:', equations[index]?.color);
-        
-        const material = createShaderMaterial(equationGLSL, color);
-        console.log('Shader material created:', material);
-        
-        const mesh = new THREE.Mesh(geometry, material);
-        // Ensure mesh is positioned correctly
-        mesh.position.set(0, 0, 0);
-        mesh.rotation.x = -Math.PI / 2; // Rotate to face camera
-        meshes[index] = mesh;
-        scene.add(mesh);
-        console.log('Mesh added to scene. Position:', mesh.position);
-        console.log('Mesh added to scene. Scene children:', scene.children);
-      } catch (e) {
-        document.getElementById('error').innerText = `Error in equation ${index + 1}: ${e.message}`;
-      }
+  // Early return for empty equations
+  if (!text.trim()) {
+    document.getElementById('error').innerText = '';
+    // Remove old mesh if it exists
+    if (meshes[index]) {
+      scene.remove(meshes[index]);
+      meshes[index].geometry.dispose();
+      meshes[index].material.dispose();
+      meshes[index] = null;
     }
+    return;
+  }
 
-    // Add equation input field
-    function addEquation(equationText = '', placeholder = 'Enter equation, e.g., sin(x)+cos(y)') {
+  // Guard against deleted equations
+  if (!equations[index]) {
+    document.getElementById('error').innerText = '';
+    return;
+  }
+
+  let equationGLSL;
+  try {
+    equationGLSL = (equations[index] && equations[index].glsl) || safeToGLSL(text.trim());
+  } catch (err) {
+    document.getElementById('error').innerText = `Invalid equation: ${err.message}`;
+    return;
+  }
+
+  document.getElementById('error').innerText = '';
+
+  // Remove old mesh if it exists
+  if (meshes[index]) {
+    scene.remove(meshes[index]);
+    meshes[index].geometry.dispose();
+    meshes[index].material.dispose();
+    meshes[index] = null;
+  }
+
+  try {
+    const geometry = new THREE.PlaneGeometry(range * 2, range * 2, resolution, resolution);
+    const color = new THREE.Color(equations[index].color);
+    const material = createShaderMaterial(equationGLSL, color); // ✅ use parsed GLSL here
+
+    const mesh = new THREE.Mesh(geometry, material);
+    meshes[index] = mesh;
+    scene.add(mesh);
+  } catch (e) {
+    document.getElementById('error').innerText = `Error in equation ${index + 1}: ${e.message}`;
+  }
+}
+
+
+    function addEquation(equationText = '', placeholder = 'Enter equation') {
       const container = document.getElementById('equations');
       const index = equations.length;
       equations.push({ text: equationText, color: getRandomColor() });
@@ -452,54 +390,62 @@ const node = math.parse(processedExpr, scope);
       const row = document.createElement('div');
       row.className = 'equation-row';
 
+      // Create the math span
       const mathSpan = document.createElement('span');
       mathSpan.className = 'equation-input';
 
+      // Initialize MathQuill field
       const mathField = MQ.MathField(mathSpan, {
         spaceBehavesLikeTab: true,
         handlers: {
-  edit: () => {
-    const value = preprocess(mathField.text());
-    mathSpan.classList.toggle('empty', value === '');
+          edit: () => {
+            const rawValue = mathField.text();
+            const value = rawValue.replace(/\s+/g, ''); // strip spaces
+            mathSpan.classList.toggle('empty', value === '');
 
-    clearTimeout(typingTimer);
-    typingTimer = setTimeout(() => {
-      if (!value) {
-        document.getElementById('error').innerText = '';
-        updateEquation(index, '');
-        return;
-      }
+            // Add new row if last and not empty
+            const rows = document.querySelectorAll('.equation-row');
+            const isLast = row === rows[rows.length - 1];
+            if (isLast && value !== '') {
+              addEquation('', placeholder);
+            }
 
-      if (!isBalanced(value)) {
-        document.getElementById('error').innerText = 'Unbalanced parentheses';
-        return;
-      }
+            // Debounce with typing delay
+            clearTimeout(typingTimer);
+            typingTimer = setTimeout(() => {
+              const trimmedValue = value.trim();
+              // Only process if value is not empty and parentheses are balanced
+              if (trimmedValue && isBalanced(trimmedValue)) {
+                try {
+                  const processedValue = preprocess(trimmedValue);
+                  const node = math.parse(processedValue);
+                  const glsl = mathjsToGLSL(node);
+                  equations[index].glsl = glsl;
+                  updateEquation(index, trimmedValue);
+                  document.getElementById('error').innerText = ''; // Clear error on success
+                } catch (err) {
+                  console.error("Equation parsing error:", err);
+                  document.getElementById('error').innerText = `Error: ${err.message}`;
+                }
+              } else if (!trimmedValue) {
+                document.getElementById('error').innerText = ''; // Clear error for empty input
+              }
+            }, typingDelay);
 
-      try {
-        const glsl = safeToGLSL(value);
-        equations[index].glsl = glsl;
-        equations[index].text = value;
-        updateEquation(index, value);
-        document.getElementById('error').innerText = '';
-      } catch (err) {
-        document.getElementById('error').innerText = err.message;
-      }
-    }, typingDelay);
-  }
-}
-
+          }
+        }
       });
 
+      // Set initial text if any
       if (equationText) {
         const latexText = equationText
           .replace(/sin/g, '\\sin')
           .replace(/cos/g, '\\cos')
-          .replace(/tan/g, '\\tan')
-          .replace(/pi/g, '\\pi')
-          .replace(/sqrt/g, '\\sqrt');
+          .replace(/tan/g, '\\tan');
         setTimeout(() => mathField.latex(latexText), 0);
       }
 
+      // Add placeholder effect
       mathSpan.dataset.placeholder = placeholder;
       mathSpan.classList.toggle('empty', equationText.trim() === '');
 
@@ -516,8 +462,9 @@ const node = math.parse(processedExpr, scope);
         }
         container.removeChild(row);
         const remainingRows = document.querySelectorAll('.equation-row').length;
-        if (remainingRows < 1) {
+        while (remainingRows < 2) {
           addEquation('', placeholder);
+          break;
         }
       };
 
@@ -536,18 +483,9 @@ const node = math.parse(processedExpr, scope);
       renderer.render(scene, camera);
     }
 
-    // Check CDN resources loading
-    console.log('THREE.js version:', THREE.REVISION);
-    console.log('math.js version:', math.version);
-    
     init();
-    console.log('Starting with test equations...');
-    // Delay initial equations to ensure MathQuill is fully initialized
-    setTimeout(() => {
-      addEquation('x^2 + y^2');  // Simple test equation
-      addEquation('');
-    }, 500);
+    addEquation('sin(x) + cos(y)');
+    addEquation('');
   </script>
 </body>
 </html>
-    

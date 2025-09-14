@@ -2,8 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale  <script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <link href="https://fonts.googleapis.com/css2?family=STIX+Two+Math&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.css">
   <title>Coordinatix 3D </title>
   <style>
     /* --- CSS unchanged from your original code --- */
@@ -14,13 +16,114 @@
     #sidebar h2 { font-size: 1.5em; margin-bottom: 20px; }
     .equation-input { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.4); border-radius: 6px; background: rgba(255, 255, 255, 0.3); color: #fff; }
     .equation-row { display: flex; align-items: center; margin-bottom: 10px; }
-    .equation-input { flex: 1; padding: 10px; border: 1px solid rgba(255, 255, 255, 0.135); border-radius: 6px 0 0 6px; background: rgba(255, 255, 255, 0.011); color: #ffffff; margin: 0; }
+    .equation-input { 
+      flex: 1; 
+      padding: 0; 
+      border: 1px solid rgba(255, 255, 255, 0.4) !important; 
+      border-radius: 6px 0 0 6px; 
+      background: rgba(255, 255, 255, 0.05); 
+      color: #ffffff; 
+      margin: 0;
+      font-size: 14px;
+      font-family: 'STIX Two Math', serif;
+      position: relative;
+      min-height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      overflow: visible;
+      z-index: 0;
+    }
     button { padding: 10px 14px; margin: 5px 0; border: none; border-radius: 6px; cursor: pointer; background: #00aaff; color: white; transition: background 0.2s ease; }
     button:hover { background: #0077cc00; }
     .remove-btn { padding: 10px 14px; background: rgba(255, 80, 80, 0); color: white; border: none; cursor: pointer; border-radius: 0 6px 6px 0; height: 100%; font-size: 1.2em; }
     .remove-btn:hover { transform: scale(1.2); }
     #error { color: #ff8888; font-size: 0.9em; margin-top: 10px; }
     @media (max-width: 768px) { #sidebar { width: 90%; left: 5%; } }
+
+    /* MathQuill styling that preserves your UI */
+    .equation-input.empty::before {
+      content: attr(data-placeholder);
+      color: rgba(255, 255, 255, 0.5);
+      position: absolute;
+      top: 50%;
+      left: 10px;
+      transform: translateY(-50%);
+      pointer-events: none;
+      font-family: 'STIX Two Math', serif;
+      font-size: 14px;
+      z-index: 0;
+    }
+
+    .equation-input .mq-editable-field {
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      width: 100%  !important;
+      padding: 0 !important;
+      position: relative !important;
+      left: auto !important;
+      top: auto !important;
+      transform: none !important;
+      min-height: 38px !important;
+      display: flex !important;
+      align-items: center !important;
+    }
+
+    .equation-input .mq-root-block {
+      display: flex !important;
+      align-items: center !important;
+      width: 100% !important;
+      min-height: 38px !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+
+    .equation-input .mq-math-mode {
+      background: transparent !important;
+    }
+
+    .mq-root-block,
+    .mq-editable-field,
+    .mq-math-mode,
+    .mq-root-block span,
+    .mq-numeral {
+      font-family: 'STIX Two Math', 'Times New Roman', serif !important;
+      font-size: 14px !important;
+      color: inherit;
+    }
+    
+    /* Make sure the border shows through */
+    .equation-input .mq-math-mode {
+      border: none !important;
+      box-shadow: none !important;
+    }
+     
+    /* Make exponents rise higher and look smaller */
+.mq-sup {
+  vertical-align: super !important;
+  font-size: 0.7em !important; /* make it smaller */
+  position: relative !important;
+  top: -0.3em !important;      /* push it up */
+}
+
+
+    /* Ensure MathQuill doesn't overflow */
+    .equation-input .mq-root-block {
+      padding: 10px !important;
+    }
+      
+    .equation-input:focus-within {
+      box-shadow: 0 0 8px 2px #dce7e567; 
+     border-radius: 6px;
+     
+}
+
+
+    .mq-cursor {
+      border-left: 1px solid white !important;
+      animation: blink 1s steps(1) infinite;
+    }
   </style>
 </head>
 <body>
@@ -31,17 +134,23 @@
   </div>
   <div id="canvas-container"></div>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.134/examples/js/controls/OrbitControls.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.4.0/math.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.js"></script>
+  <script>
+    var MQ = MathQuill.getInterface(2);
+  </script>
 
 
   <script>
-    let scene, camera, renderer, controls;
+    let scene, camera, renderer, controls, typingTimer;
     const equations = [];
     const meshes = [];
     const range = 10;
-    const resolution = 100;
+    const resolution = 2000;
+    const typingDelay = 100; // milliseconds
 
     function init() {
       scene = new THREE.Scene();
@@ -188,7 +297,7 @@ function createShaderMaterial(equationGLSL, color) {
     function updateEquation(index, text) {
   let equationGLSL;
   try {
-    equationGLSL = safeToGLSL(text.trim()); // ✅ parse & convert properly
+    equationGLSL = equations[index].glsl || safeToGLSL(text.trim()); // ✅ parse & convert properly
   } catch (err) {
     document.getElementById('error').innerText = `Invalid equation: ${err.message}`;
     return;
@@ -220,7 +329,7 @@ function createShaderMaterial(equationGLSL, color) {
 }
 
 
-    function addEquation(equationText = '') {
+    function addEquation(equationText = '', placeholder = 'Enter equation') {
       const container = document.getElementById('equations');
       const index = equations.length;
       equations.push({ text: equationText, color: getRandomColor() });
@@ -228,16 +337,58 @@ function createShaderMaterial(equationGLSL, color) {
       const row = document.createElement('div');
       row.className = 'equation-row';
 
-      const input = document.createElement('input');
-      input.type = 'text';
-      input.className = 'equation-input';
-      input.placeholder = 'Enter equation (e.g., sin(x) + cos(y))';
-      input.value = equationText;
+      // Create the math span
+      const mathSpan = document.createElement('span');
+      mathSpan.className = 'equation-input';
+
+      // Initialize MathQuill field
+      const mathField = MQ.MathField(mathSpan, {
+        spaceBehavesLikeTab: true,
+        handlers: {
+          edit: () => {
+            const value = mathField.latex();
+            mathSpan.classList.toggle('empty', value.trim() === '');
+
+            // Add new row if last and not empty
+            const rows = document.querySelectorAll('.equation-row');
+            const isLast = row === rows[rows.length - 1];
+            if (isLast && value.trim() !== '') {
+              addEquation('', placeholder);
+            }
+
+            // Debounce with typing delay
+            clearTimeout(typingTimer);
+            typingTimer = setTimeout(() => {
+              const plainMath = value
+                .replace(/\\sin/g, 'sin')
+                .replace(/\\cos/g, 'cos')
+                .replace(/\\tan/g, 'tan')
+                .replace(/\\cdot/g, '*')
+                .replace(/\\frac{([^}]*)}{([^}]*)}/g, '($1)/($2)')
+                .replace(/\^{([^}]*)}/g, '^($1)');
+              updateEquation(index, plainMath);
+            }, typingDelay);
+
+          }
+        }
+      });
+
+      // Set initial text if any
+      if (equationText) {
+        const latexText = equationText
+          .replace(/sin/g, '\\sin')
+          .replace(/cos/g, '\\cos')
+          .replace(/tan/g, '\\tan');
+        setTimeout(() => mathField.latex(latexText), 0);
+      }
+
+      // Add placeholder effect
+      mathSpan.dataset.placeholder = placeholder;
+      mathSpan.classList.toggle('empty', equationText.trim() === '');
 
       const removeBtn = document.createElement('button');
       removeBtn.className = 'remove-btn';
-      removeBtn.innerHTML = `<img src="images/svg.svg" alt="Delete" width="16" height="16">`;
-
+      removeBtn.innerHTML = '<img src="images/svg.svg" alt="Delete" width="16" height="16">';
       removeBtn.onclick = () => {
         equations[index] = null;
         if (meshes[index]) {
@@ -249,21 +400,12 @@ function createShaderMaterial(equationGLSL, color) {
         container.removeChild(row);
         const remainingRows = document.querySelectorAll('.equation-row').length;
         while (remainingRows < 2) {
-          addEquation('');
+          addEquation('', placeholder);
           break;
         }
       };
 
-      input.oninput = () => {
-        updateEquation(index, input.value);
-        const inputs = document.querySelectorAll('.equation-input');
-        const isLast = input === inputs[inputs.length - 1];
-        if (isLast && input.value.trim() !== '') {
-          addEquation('');
-        }
-      };
-
-      row.appendChild(input);
+      row.appendChild(mathSpan);
       row.appendChild(removeBtn);
       container.appendChild(row);
 
