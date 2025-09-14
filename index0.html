@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interactive Graphing Calculator</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.4.2/math.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: Arial, sans-serif;
+    }
+
+    body {
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+      background-color: #f0f0f0;
+    }
+
+    #container {
+      display: flex;
+      flex-direction: row;
+      width: 100%;
+      height: 100%;
+    }
+
+    #equation-panel {
+      width: 300px;
+      background: #fff;
+      border-right: 1px solid #ccc;
+      overflow-y: auto;
+      padding: 10px;
+      flex-shrink: 0;
+    }
+
+    #graph-panel {
+      flex-grow: 1;
+      position: relative;
+    }
+
+    #canvas-container {
+      width: 100%;
+      height: 100%;
+    }
+
+    .equation-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+      gap: 5px;
+    }
+
+    .equation-row input[type="text"] {
+      flex-grow: 1;
+      padding: 5px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 16px;
+    }
+
+    .equation-row input[type="color"] {
+      width: 30px;
+      height: 30px;
+      border: none;
+      cursor: pointer;
+    }
+
+    .slider-container {
+      margin: 10px 0;
+      padding-left: 20px;
+    }
+
+    .slider-container label {
+      display: block;
+      font-size: 14px;
+      margin-bottom: 5px;
+    }
+
+    #table-input {
+      margin-top: 20px;
+      padding: 10px;
+      border-top: 1px solid #ccc;
+    }
+
+    #table-input textarea {
+      width: 100%;
+      height: 100px;
+      resize: vertical;
+    }
+
+    #export-button {
+      margin: 10px;
+      padding: 8px 16px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    #export-button:hover {
+      background: #0056b3;
+    }
+
+    @media (max-width: 768px) {
+      #container {
+        flex-direction: column;
+      }
+
+      #equation-panel {
+        width: 100%;
+        height: 40%;
+        overflow-y: auto;
+      }
+
+      #graph-panel {
+        height: 60%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <div id="equation-panel">
+      <div class="equation-row">
+        <input type="text" placeholder="Enter equation (e.g., y = x^2)" data-index="0">
+        <input type="color" value="#ff0000" data-index="0">
+      </div>
+      <div id="table-input">
+        <h3>Table of Points</h3>
+        <textarea placeholder="Enter points as x,y pairs (one per line, e.g., 1,2)"></textarea>
+      </div>
+      <button id="export-button">Export Graph</button>
+    </div>
+    <div id="graph-panel">
+      <div id="canvas-container"></div>
+    </div>
+  </div>
+
+  <script>
+    let equations = [{ expr: '', color: '#ff0000', sliders: {} }];
+    let tablePoints = [];
+    let scale = 50; // Pixels per unit
+    let offsetX = 0, offsetY = 0;
+    let isDragging = false;
+    let lastMouseX, lastMouseY;
+
+    // Add new equation row
+    function addEquationRow() {
+      const index = equations.length;
+      const row = document.createElement('div');
+      row.className = 'equation-row';
+      row.innerHTML = `
+        <input type="text" placeholder="Enter equation (e.g., y = x^2)" data-index="${index}">
+        <input type="color" value="#${Math.floor(Math.random()*16777215).toString(16)}" data-index="${index}">
+      `;
+      document.getElementById('equation-panel').insertBefore(row, document.getElementById('table-input'));
+      equations.push({ expr: '', color: row.querySelector('input[type="color"]').value, sliders: {} });
+    }
+
+    // Parse sliders from equation
+    function createSliders(index) {
+      const input = document.querySelector(`input[type="text"][data-index="${index}"]`);
+      const expr = input.value;
+      const sliderContainer = document.createElement('div');
+      sliderContainer.className = 'slider-container';
+      input.parentNode.appendChild(sliderContainer);
+
+      // Simple regex to find parameters (letters not in function names)
+      const params = expr.match(/\b[a-zA-Z](?![a-zA-Z]*\()/g) || [];
+      const uniqueParams = [...new Set(params.filter(p => p !== 'x' && p !== 'y'))];
+      uniqueParams.forEach(param => {
+        if (!equations[index].sliders[param]) {
+          equations[index].sliders[param] = 1; // Default value
+          const sliderDiv = document.createElement('div');
+          sliderDiv.innerHTML = `
+            <label>${param}: <span class="slider-value">1</span></label>
+            <input type="range" min="-10" max="10" step="0.1" value="1" data-param="${param}">
+          `;
+          sliderContainer.appendChild(sliderDiv);
+          sliderDiv.querySelector('input').addEventListener('input', (e) => {
+            equations[index].sliders[param] = parseFloat(e.target.value);
+            sliderDiv.querySelector('.slider-value').textContent = e.target.value;
+          });
+        }
+      });
+    }
+
+    // p5.js setup
+    function setup() {
+      const canvas = createCanvas(windowWidth - 300, windowHeight);
+      canvas.parent('canvas-container');
+      background(255);
+    }
+
+    function draw() {
+      background(255);
+      translate(width / 2 + offsetX, height / 2 + offsetY);
+      scale(1, -1); // Flip y-axis for standard Cartesian coordinates
+
+      // Draw grid
+      stroke(200);
+      for (let x = -width / 2 / scale; x <= width / 2 / scale; x += 1) {
+        line(x * scale, -height / 2, x * scale, height / 2);
+      }
+      for (let y = -height / 2 / scale; y <= height / 2 / scale; y += 1) {
+        line(-width / 2, y * scale, width / 2, y * scale);
+      }
+
+      // Draw axes
+      stroke(0);
+      line(-width / 2, 0, width / 2, 0); // x-axis
+      line(0, -height / 2, 0, height / 2); // y-axis
+
+      // Draw equations
+      equations.forEach((eq, index) => {
+  if (!eq.expr) return;
+  const parts = eq.expr.split('=');
+  if (parts.length !== 2) return;
+  let expr = parts[1].trim();
+  let isInequality = false;
+  let inequalityType = '';
+
+  // Check for inequalities
+  if (parts[0].includes('<') || parts[0].includes('>')) {
+    isInequality = true;
+    if (parts[0].includes('<=')) inequalityType = '<=';
+    else if (parts[0].includes('>=')) inequalityType = '>=';
+    else if (parts[0].includes('<')) inequalityType = '<';
+    else if (parts[0].includes('>')) inequalityType = '>';
+    expr = parts[0].split(/[<>]=?/).pop().trim(); // Extract expression after inequality
+  }
+
+  if (isInequality) {
+    // Shade inequality region
+    fill(eq.color + '80'); // Semi-transparent fill
+    noStroke();
+    beginShape();
+    for (let x = -width / 2 / scale; x <= width / 2 / scale; x += 0.1) {
+      try {
+        const scope = { x, ...eq.sliders };
+        const yVal = math.evaluate(expr, scope);
+        let includePoint = false;
+        if (inequalityType === '<' && yVal < 0) includePoint = true;
+        if (inequalityType === '<=' && yVal <= 0) includePoint = true;
+        if (inequalityType === '>' && yVal > 0) includePoint = true;
+        if (inequalityType === '>=' && yVal >= 0) includePoint = true;
+        if (includePoint && isFinite(yVal)) {
+          vertex(x * scale, yVal * scale);
+        }
+      } catch (e) {}
+    }
+    // Close the shape at the bottom or top of the canvas
+    vertex(width / 2 / scale * scale, inequalityType.includes('>') ? -height / 2 : height / 2);
+    vertex(-width / 2 / scale * scale, inequalityType.includes('>') ? -height / 2 : height / 2);
+    endShape(CLOSE);
+  } else {
+    // Draw regular equation
+    stroke(eq.color);
+    noFill();
+    beginShape();
+    for (let x = -width / 2 / scale; x <= width / 2 / scale; x += 0.1) {
+      try {
+        const scope = { x, ...eq.sliders };
+        const y = math.evaluate(expr, scope);
+        if (isFinite(y)) {
+          vertex(x * scale, y * scale);
+        }
+      } catch (e) {}
+    }
+    endShape();
+  }
+});
+
+      // Draw table points
+      stroke(0);
+      fill(0);
+      tablePoints.forEach(p => {
+        ellipse(p.x * scale, p.y * scale, 5, 5);
+      });
+    }
+
+    // Event listeners
+    document.getElementById('equation-panel').addEventListener('input', (e) => {
+      if (e.target.type === 'text') {
+        const index = e.target.dataset.index;
+        equations[index].expr = e.target.value;
+        createSliders(index);
+        if (e.target.value && index == equations.length - 1) {
+          addEquationRow();
+        }
+        // Remove empty rows
+        equations.forEach((eq, i) => {
+          if (i < equations.length - 1 && !eq.expr) {
+            document.querySelector(`.equation-row input[data-index="${i}"]`).parentNode.remove();
+            equations.splice(i, 1);
+            document.querySelectorAll('.equation-row input[data-index]').forEach((input, j) => {
+              input.dataset.index = j;
+            });
+          }
+        });
+      } else if (e.target.type === 'color') {
+        const index = e.target.dataset.index;
+        equations[index].color = e.target.value;
+      }
+    });
+
+    document.getElementById('table-input').querySelector('textarea').addEventListener('input', (e) => {
+      tablePoints = e.target.value.split('\n').map(line => {
+        const [x, y] = line.split(',').map(Number);
+        return isFinite(x) && isFinite(y) ? { x, y } : null;
+      }).filter(p => p);
+    });
+
+    document.getElementById('export-button').addEventListener('click', () => {
+      saveCanvas('graph', 'png');
+    });
+
+    // Zoom and pan
+    function mouseWheel(event) {
+      scale *= event.delta > 0 ? 0.9 : 1.1;
+      scale = constrain(scale, 10, 200);
+      return false;
+    }
+
+    function mousePressed() {
+      if (mouseX >= 0 && mouseX <= width && mouseY >= 0 && mouseY <= height) {
+        isDragging = true;
+        lastMouseX = mouseX;
+        lastMouseY = mouseY;
+      }
+    }
+
+    function mouseDragged() {
+      if (isDragging) {
+        offsetX += mouseX - lastMouseX;
+        offsetY += mouseY - lastMouseY;
+        lastMouseX = mouseX;
+        lastMouseY = mouseY;
+      }
+    }
+
+    function mouseReleased() {
+      isDragging = false;
+    }
+
+    // Responsive canvas
+    function windowResized() {
+      resizeCanvas(windowWidth - (windowWidth > 768 ? 300 : 0), windowHeight);
+    }
+  </script>
+</body>
+</html>

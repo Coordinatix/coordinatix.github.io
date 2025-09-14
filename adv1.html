@@ -1,22 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-      // Soft upper right corner lighting setup with lighter shadows
-      scene.add(new THREE.AmbientLight(0xffffff, 0.45));
-      
-      // Softer main light from upper-right corner
-      const cornerLight = new THREE.DirectionalLight(0xffffff, 0.5);
-      cornerLight.position.set(12, 10, 8);
-      cornerLight.castShadow = true;
-      cornerLight.shadow.mapSize.width = 2048;
-      cornerLight.shadow.mapSize.height = 2048;
-      cornerLight.shadow.radius = 2.5; // Increased shadow softening
-      scene.add(cornerLight);
-      
-      // Stronger fill light for lighter shadows
-      const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
-      fillLight.position.set(-2, 0, 2);
-      scene.add(fillLight);ame="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <title>Coordinatix 3D </title>
   <style>
@@ -55,7 +41,7 @@
     const equations = [];
     const meshes = [];
     const range = 10;
-    const resolution = 2000;
+    const resolution = 100;
 
     function init() {
       scene = new THREE.Scene();
