@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Tic Tac Toe — Widget</title>
+<style>
+  :root{--bg:#ffffff;--fg:#0b1220;--muted:#6b7280;--accent:#111827}
+  html,body{height:100%;margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial;color:var(--fg);background:var(--bg);-webkit-font-smoothing:antialiased}
+  .wrap{min-height:100%;display:flex;align-items:center;justify-content:center;padding:20px}
+  .card{width:320px;max-width:92vw}
+  .board{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .cell{aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;font-size:48px;user-select:none;border-radius:8px;background:#f8fafc;border:1px solid rgba(0,0,0,0.06)}
+  .cell[data-filled="true"]{cursor:default}
+  .meta{display:flex;justify-content:space-between;align-items:center;margin:12px 0;font-size:14px;color:var(--muted)}
+  .score{font-weight:700}
+  @media (prefers-color-scheme:dark){:root{--bg:#071025;--fg:#e6eef8;--muted:#94a3b8} .cell{background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04)}}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card" role="application" aria-label="tic tac toe widget">
+      <div class="meta"><div id="status">Turn: X</div><div class="meta-right">X: <span id="sx" class="score">0</span> • O: <span id="so" class="score">0</span></div></div>
+      <div id="board" class="board" aria-label="3 by 3 tic tac toe"></div>
+    </div>
+  </div>
+<script>
+(() => {
+  const SIZE = 3;
+  let board = Array.from({length:SIZE},()=>Array(SIZE).fill(null));
+  let current = 'X';
+  const boardEl = document.getElementById('board');
+  const statusEl = document.getElementById('status');
+  const sx = document.getElementById('sx');
+  const so = document.getElementById('so');
+
+  // persistent scores
+  const scores = {X: parseInt(localStorage.getItem('t3sx')||'0',10), O: parseInt(localStorage.getItem('t3so')||'0',10)};
+  sx.textContent = scores.X; so.textContent = scores.O;
+
+  function makeGrid(){
+    boardEl.innerHTML='';
+    for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++){
+      const d=document.createElement('div'); d.className='cell'; d.dataset.r=r; d.dataset.c=c; d.dataset.filled='false'; d.addEventListener('click', onClick);
+      boardEl.appendChild(d);
+    }
+  }
+
+  function onClick(e){
+    const r=+e.currentTarget.dataset.r, c=+e.currentTarget.dataset.c;
+    if(board[r][c] || isGameOver()) return;
+    board[r][c]=current; e.currentTarget.textContent=current; e.currentTarget.dataset.filled='true';
+    const winner = checkWinner();
+    if(winner){
+      if(winner!=='T') { scores[winner]++; persistScores(); }
+      announce(winner);
+      setTimeout(()=>resetBoard(), 900);
+      return;
+    }
+    current = current==='X'?'O':'X'; statusEl.textContent = `Turn: ${current}`;
+  }
+
+  function persistScores(){ localStorage.setItem('t3sx',scores.X); localStorage.setItem('t3so',scores.O); sx.textContent=scores.X; so.textContent=scores.O; }
+
+  function resetBoard(){ board = Array.from({length:SIZE},()=>Array(SIZE).fill(null)); current='X'; statusEl.textContent = 'Turn: X'; const cells = boardEl.children; for(const cell of cells){ cell.textContent=''; cell.dataset.filled='false' } }
+
+  function isGameOver(){ return !!checkWinner(); }
+
+  function announce(w){ if(w==='T') statusEl.textContent='Tie — restarting'; else statusEl.textContent = `${w} wins — restarting`; }
+
+  function checkWinner(){
+    // rows
+    for(let r=0;r<SIZE;r++){ if(board[r][0] && board[r][0]===board[r][1] && board[r][1]===board[r][2]) return board[r][0]; }
+    // cols
+    for(let c=0;c<SIZE;c++){ if(board[0][c] && board[0][c]===board[1][c] && board[1][c]===board[2][c]) return board[0][c]; }
+    // diags
+    if(board[0][0] && board[0][0]===board[1][1] && board[1][1]===board[2][2]) return board[0][0];
+    if(board[0][2] && board[0][2]===board[1][1] && board[1][1]===board[2][0]) return board[0][2];
+    // tie
+    if(board.flat().every(v=>v!==null)) return 'T';
+    return null;
+  }
+
+  // quick tap-to-restart: if user taps when game over, immediately reset
+  boardEl.addEventListener('click', ()=>{ if(isGameOver()) resetBoard(); });
+
+  // install-friendly manifest creation
+  function createManifest(){
+    const m = {name:'TicTacToe','short_name':'T3',start_url:'.',display:'standalone',background_color:'#ffffff',icons:[{src:'icon-192.png',sizes:'192x192'},{src:'icon-512.png',sizes:'512x512'}]};
+    const blob = new Blob([JSON.stringify(m)],{type:'application/json'}); const url=URL.createObjectURL(blob); const link=document.createElement('link'); link.rel='manifest'; link.href=url; document.head.appendChild(link);
+  }
+
+  // register minimal service worker if available (file /t3-sw.js should exist on your server when deploying)
+  function registerSW(){ if('serviceWorker' in navigator){ navigator.serviceWorker.register('/t3-sw.js').catch(()=>{}); } }
+
+  makeGrid(); createManifest(); registerSW();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Calculus Solver — MathQuill fallback fix</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.css" />
+  <style>
+    :root{--bg1:#eef2f3;--bg2:#8e9eab}
+    body{font-family:Inter, 'Segoe UI', Roboto, Arial, sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:linear-gradient(90deg,var(--bg1),var(--bg2));padding:16px}
+    .card{background:#fff;width:920px;max-width:100%;border-radius:12px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,0.12);display:grid;grid-template-columns:1fr 360px;gap:16px}
+    h1{margin:0 0 8px 0;font-size:18px}
+    .small{font-size:13px;color:#444}
+    #inputField{min-height:56px;border:1px solid #e6e6e6;border-radius:8px;padding:8px}
+    textarea.fallback{width:100%;height:72px;border-radius:6px;border:1px solid #ddd;padding:8px;font-family:monospace}
+    #controls{margin-top:10px}
+    button{appearance:none;border:0;padding:8px 12px;border-radius:8px;background:#0078d7;color:#fff;cursor:pointer}
+    button.secondary{background:#f4f6f8;color:#222;border:1px solid #ddd}
+    #output{margin-top:12px;padding:12px;border-radius:8px;background:#fbfdff;border:1px solid #eef2f6;min-height:72px;white-space:pre-wrap}
+    #examples button{display:inline-block;margin:6px 6px 0 0;padding:6px 8px;border-radius:8px;border:1px solid #ddd;background:#fff;cursor:pointer}
+    .right h3{margin-top:0}
+    .tests{margin-top:12px}
+    .ok{color:green}.bad{color:red}
+    pre{white-space:pre-wrap;margin:6px 0 0 0}
+    .note{font-size:12px;color:#666;margin-top:8px}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div>
+      <h1>🧮 Calculus Solver — resilient MathQuill handling</h1>
+      <div class="small">Type an integral using the MathQuill math box (or click an example). If MathQuill's interface is not available in this environment, a plain textarea fallback will be used so the page doesn't crash.</div>
+
+      <div id="inputField" aria-label="math input"></div>
+
+      <div id="controls">
+        <button id="solveBtn">Solve</button>
+        <button id="clearBtn" class="secondary">Clear</button>
+        <span class="note" id="status">Loading libraries...</span>
+      </div>
+
+      <div id="output" aria-live="polite"></div>
+
+      <div class="tests">
+        <h3 style="margin:12px 0 6px 0">Internal tests</h3>
+        <div id="testResults" class="small"></div>
+        <div style="margin-top:8px">
+          <button id="runTests" class="secondary">Run tests</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="right">
+      <h3>Examples</h3>
+      <div id="examples">
+        <button data-l="\\int x^2 \\, d x">∫ x² dx</button>
+        <button data-l="\\int_{0}^{1} x^2 \\, d x">∫₀¹ x² dx</button>
+        <button data-l="\\int \\sin(x) \\, d x">∫ sin(x) dx</button>
+        <button data-l="\\int_{0}^{\\pi} \\sin(x) \\, d x">∫₀^{π} sin(x) dx</button>
+        <button data-l="\\int e^{x} \\, d x">∫ eˣ dx</button>
+        <button data-l="\\int_{0}^{1} e^{x} \\, d x">∫₀¹ eˣ dx</button>
+        <button data-l="\\int_{-1}^{1} x \\, d x">∫_{-1}^{1} x dx</button>
+      </div>
+
+      <h3 style="margin-top:12px">Debug / Notes</h3>
+      <div class="small">This page tries multiple CDNs for MathQuill, Algebrite and math.js. If MathQuill's <code>getInterface</code> is not present, a textarea fallback is used so the page remains usable (you can type LaTeX directly).</div>
+    </div>
+  </div>
+
+  <script>
+    // small loader with fallback
+    function loadScript(url, timeout = 8000){
+      return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        let done = false;
+        s.src = url;
+        s.async = true;
+        s.onload = () => { if(!done){ done = true; resolve(url); } };
+        s.onerror = () => { if(!done){ done = true; reject(new Error('Failed to load ' + url)); } };
+        document.head.appendChild(s);
+        setTimeout(()=>{ if(!done){ done = true; reject(new Error('Timeout loading ' + url)); } }, timeout);
+      });
+    }
+
+    async function loadWithFallback(urls, timeoutPer = 9000){
+      let lastErr = null;
+      for(const u of urls){
+        try{
+          const src = await loadScript(u, timeoutPer);
+          console.log('Loaded', src);
+          return src;
+        }catch(e){
+          console.warn('Failed to load', u, e.message);
+          lastErr = e;
+        }
+      }
+      throw lastErr || new Error('No URLs provided');
+    }
+
+    // Keep converter and numeric integrator from previous version
+    function latexToAlgebrite(latex){
+      if(!latex) return '';
+      let out = latex;
+      out = out.replace(/\\,/g,'').replace(/\\ /g,'').replace(/\\!/g,'');
+      out = out.replace(/\\frac\{([^}]*)\}\{([^}]*)\}/g, function(_,a,b){return '('+a+'/'+b+')';});
+      out = out.replace(/\\sqrt\{([^}]*)\}/g, function(_,a){return 'sqrt('+a+')';});
+      out = out.replace(/\\left/g,'').replace(/\\right/g,'');
+      out = out.replace(/\\cdot/g,'*').replace(/\\times/g,'*').replace(/\\pi/g,'pi');
+      out = out.replace(/\\infty/g,'Infinity');
+      out = out.replace(/\\mathrm\{d\}/g,'d');
+      out = out.replace(/\\sin/g,'sin').replace(/\\cos/g,'cos').replace(/\\tan/g,'tan');
+      out = out.replace(/\\ln/g,'log').replace(/\\log/g,'log');
+      out = out.replace(/\\/g,'');
+      out = out.replace(/\^\{([^}]*)\}/g, function(_,a){return '^('+a+')';});
+      out = out.replace(/[\{\}]/g,'');
+      out = out.replace(/(\d)\s*([a-zA-Z\(])/g,'$1*$2');
+      out = out.replace(/\)\s*\(/g,')*(');
+      out = out.replace(/\s+/g,'');
+      return out;
+    }
+
+    function numericIntegrate(f, a, b, eps = 1e-9, maxRec = 20){
+      function simpson(f,a,b){
+        const c = (a+b)/2;
+        return (b-a)/6 * (f(a) + 4*f(c) + f(b));
+      }
+      function recurse(f,a,b,eps,whole,rec){
+        const c = (a+b)/2;
+        const left = simpson(f,a,c);
+        const right = simpson(f,c,b);
+        if(rec<=0 || Math.abs(left+right-whole) <= 15*eps) return left+right + (left+right-whole)/15;
+        return recurse(f,a,c,eps/2,left,rec-1) + recurse(f,c,b,eps/2,right,rec-1);
+      }
+      const initial = simpson(f,a,b);
+      return recurse(f,a,b,eps,initial,maxRec);
+    }
+
+    (async function boot(){
+      const statusEl = document.getElementById('status');
+      const outputEl = document.getElementById('output');
+      statusEl.textContent = 'Loading libraries...';
+
+      const mathquillUrls = [
+        'https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.min.js',
+        'https://cdn.jsdelivr.net/npm/mathquill@0.9.1/mathquill.min.js',
+        'https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.9.1/mathquill.min.js'
+      ];
+
+      const algebriteUrls = [
+        'https://cdn.jsdelivr.net/npm/algebrite@1.4.0/dist/algebrite.bundle-for-browser.min.js',
+        'https://cdn.jsdelivr.net/npm/algebrite@1.4.0/dist/algebrite.min.js',
+        'https://unpkg.com/algebrite@1.4.0/dist/algebrite.bundle-for-browser.min.js',
+        'https://unpkg.com/algebrite/dist/algebrite.bundle-for-browser.min.js'
+      ];
+
+      const mathjsUrls = [
+        'https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js',
+        'https://cdn.jsdelivr.net/npm/mathjs@11.8.0/lib/browser/math.js'
+      ];
+
+      // load MathQuill (required for polished input)
+      try{
+        await loadWithFallback(mathquillUrls);
+        statusEl.textContent = 'MathQuill script loaded.';
+      }catch(e){
+        statusEl.textContent = 'MathQuill script failed to load; using textarea fallback.';
+        console.warn('MathQuill failed to load', e.message);
+      }
+
+      // Create input area: try to use MathQuill interface, otherwise fallback to textarea
+      const inputContainer = document.getElementById('inputField');
+      inputContainer.innerHTML = ''; // clear
+
+      // helper to create fallback mathField-like object
+      function makeTextareaFallback(){
+        const ta = document.createElement('textarea');
+        ta.className = 'fallback';
+        ta.placeholder = 'Enter LaTeX here, e.g. \\int x^2 \\, d x';
+        inputContainer.appendChild(ta);
+        return {
+          latex(s){ if(s===undefined) return ta.value; ta.value = s; },
+          focus(){ ta.focus(); }
+        };
+      }
+
+      let mathField = null;
+      // try to get MathQuill interface safely
+      try{
+        if(window.MathQuill && typeof window.MathQuill.getInterface === 'function'){
+          const MQ = window.MathQuill.getInterface(2);
+          mathField = MQ.MathField(inputContainer, {spaceBehavesLikeTab:true, handlers:{edit:()=>{}}});
+          statusEl.textContent = 'MathQuill interface ready.';
+        } else if(window.MQ){
+          // some builds expose MQ directly
+          const MQ = window.MQ;
+          mathField = MQ.MathField(inputContainer, {spaceBehavesLikeTab:true, handlers:{edit:()=>{}}});
+          statusEl.textContent = 'MathQuill (MQ) interface ready.';
+        } else {
+          // fallback
+          mathField = makeTextareaFallback();
+          statusEl.textContent = 'MathQuill interface unavailable — using textarea fallback.';
+        }
+      }catch(err){
+        console.warn('Error initializing MathQuill interface, falling back to textarea', err);
+        mathField = makeTextareaFallback();
+        statusEl.textContent = 'MathQuill initialization failed — using textarea fallback.';
+      }
+
+      // If the mathField created is a MathQuill field, it may not have .latex setter defined the same way
+      // Normalize an adapter so code can always call mathField.latex() and mathField.focus()
+      if(mathField && typeof mathField.latex !== 'function'){
+        // try common alternative name
+        if(typeof mathField.latex === 'undefined' && typeof mathField.latexMathField === 'function'){
+          // improbable, keep fallback
+        }
+      }
+
+      // Load Algebrite and math.js (optional but preferred)
+      let haveAlgebrite = false;
+      try{
+        await loadWithFallback(algebriteUrls);
+        if(window.Algebrite && (typeof window.Algebrite.run === 'function' || typeof window.Algebrite.eval === 'function')){
+          haveAlgebrite = true;
+          statusEl.textContent = 'Algebrite loaded — symbolic integration available.';
+        } else {
+          console.warn('Algebrite script loaded but global not available');
+        }
+      }catch(err){
+        console.warn('Algebrite failed to load from CDNs', err.message);
+        statusEl.textContent = (statusEl.textContent ? statusEl.textContent + ' ' : '') + 'Algebrite unavailable.';
+      }
+
+      try{
+        await loadWithFallback(mathjsUrls);
+        if(window.math){
+          statusEl.textContent = (statusEl.textContent ? statusEl.textContent + ' ' : '') + 'math.js loaded.';
+        }
+      }catch(err){
+        console.warn('math.js failed to load', err.message);
+        statusEl.textContent = (statusEl.textContent ? statusEl.textContent + ' ' : '') + 'math.js unavailable.';
+      }
+
+      // utility helpers using Algebrite or math.js where available
+      function parseIntegralFromLatex(latex){
+        const definiteRe = /\\int_\{([^}]*)\}\^\{([^}]*)\}([\s\S]*?)\\,?\\mathrm\{d([^}]*)\}/;
+        const definiteRe2 = /\\int_\{([^}]*)\}\^\{([^}]*)\}([\s\S]*?)d([a-zA-Z])/;
+        const indefRe = /\\int([\s\S]*?)\\,?\\mathrm\{d([^}]*)\}/;
+        const indefRe2 = /\\int([\s\S]*?)d([a-zA-Z])/;
+        let m;
+        if(m = latex.match(definiteRe) || latex.match(definiteRe2)){
+          return {type:'def', integrandLatex:m[3], variable:m[4]||'x', lower:m[1], upper:m[2]};
+        } else if(m = latex.match(indefRe) || latex.match(indefRe2)){
+          return {type:'indef', integrandLatex:m[1], variable:m[2]||'x'};
+        }
+        return null;
+      }
+
+      function safeAlgebriteIntegral(integrand, variable){
+        try{ return Algebrite.run('integral(' + integrand + ',' + variable + ')').toString(); }catch(e){ console.warn('Algebrite integral failed', e); return null; }
+      }
+      function safeAlgebriteSubstitute(expr, variable, value){
+        try{ return Algebrite.run('subst(' + variable + ',(' + value + '),(' + expr + '))').toString(); }catch(e){ console.warn('Algebrite subst failed', e); return null; }
+      }
+
+      function evaluateWithMathjs(expr, scope){
+        if(window.math){
+          try{ if(typeof math.evaluate === 'function') return math.evaluate(expr, scope); if(typeof math.compile === 'function'){ const fn = math.compile(expr); return fn.evaluate(scope); } }catch(e){ console.warn('math.js evaluate failed', e); throw e; }
+        }
+        throw new Error('math.js not available');
+      }
+
+      function tidy(s){ return (s||'').toString().trim(); }
+
+      function solveLatex(latex){
+        const info = parseIntegralFromLatex(latex);
+        if(!info) return {ok:false, text:'Could not parse an integral. Try an example.'};
+        const integrand = latexToAlgebrite(info.integrandLatex);
+        const varName = info.variable || 'x';
+
+        if(info.type === 'indef'){
+          if(haveAlgebrite){
+            const F = safeAlgebriteIntegral(integrand,varName);
+            if(!F) return {ok:false, text:'Symbolic integration failed.'};
+            return {ok:true, text:`Indefinite integral:\n∫ ${integrand} d${varName} = ${F} + C`};
+          }
+          return {ok:false, text:'Symbolic integration not available (Algebrite missing).'};
+        } else {
+          const lower = latexToAlgebrite(info.lower);
+          const upper = latexToAlgebrite(info.upper);
+          if(haveAlgebrite){
+            const F = safeAlgebriteIntegral(integrand,varName);
+            if(!F) return {ok:false, text:'Symbolic antiderivative failed.'};
+            const valU = safeAlgebriteSubstitute(F,varName,upper);
+            const valL = safeAlgebriteSubstitute(F,varName,lower);
+            let numeric = 'N/A'; try{ numeric = tidy(Algebrite.run('float((' + valU + ')-(' + valL + '))')); }catch(e){}
+            const sym = tidy(Algebrite.run('simplify((' + valU + ')-(' + valL + '))'));
+            return {ok:true, text:`Definite integral:\n∫_{${lower}}^{${upper}} ${integrand} d${varName} = ${sym} (≈ ${numeric})\nAntiderivative: ${F} + C`};
+          } else if(window.math){
+            try{
+              const expr = integrand;
+              const f = x => Number(evaluateWithMathjs(expr, {[varName]: x}));
+              const a = (lower === 'Infinity' ? Infinity : (lower === '-Infinity' ? -Infinity : Number(evaluateWithMathjs(lower,{}))));
+              const b = (upper === 'Infinity' ? Infinity : (upper === '-Infinity' ? -Infinity : Number(evaluateWithMathjs(upper,{}))));
+              if(!isFinite(a) || !isFinite(b)) return {ok:false, text:'Improper integrals with infinite bounds are not supported by numeric fallback.'};
+              const val = numericIntegrate(f,a,b,1e-9,20);
+              return {ok:true, text:`Definite integral (numeric fallback):\n∫_{${lower}}^{${upper}} ${integrand} d${varName} ≈ ${val}`};
+            }catch(e){ console.error('Numeric fallback error', e); return {ok:false, text:'Numeric fallback failed: '+e.message}; }
+          } else {
+            return {ok:false, text:'No method available: neither Algebrite nor math.js loaded.'};
+          }
+        }
+      }
+
+      // UI wiring: ensure mathField exposes latex() getter/setter and focus()
+      // If a MathQuill field was created above, it already follows this API.
+      if(!mathField){
+        mathField = makeTextareaFallback();
+      }
+
+      document.getElementById('solveBtn').addEventListener('click', ()=>{
+        const latex = (typeof mathField.latex === 'function') ? mathField.latex() : '';
+        outputEl.textContent = 'Computing...';
+        try{
+          const res = solveLatex(latex);
+          if(res.ok) outputEl.innerHTML = '<pre>' + res.text + '</pre>'; else outputEl.innerHTML = '<b style="color:crimson">' + res.text + '</b>';
+        }catch(e){ console.error(e); outputEl.innerHTML = '<b style="color:red">Unexpected: '+e.message+'</b>'; }
+      });
+
+      document.getElementById('clearBtn').addEventListener('click', ()=>{ if(typeof mathField.latex === 'function') mathField.latex(''); outputEl.innerHTML = ''; mathField.focus(); });
+
+      document.querySelectorAll('#examples button').forEach(b=>{
+        b.addEventListener('click', ()=>{
+          const l = b.getAttribute('data-l');
+          if(typeof mathField.latex === 'function') mathField.latex(l);
+        });
+      });
+
+      // Tests (keep original ones + two more)
+      const tests = [
+        {name:'Indefinite: x^2', latex:'\\int x^2 \\, d x', expectContains:'x^3'},
+        {name:'Definite: 0->1 x^2', latex:'\\int_{0}^{1} x^2 \\, d x', expectNumeric: (val)=>Math.abs(val-1/3) < 1e-8},
+        {name:'Definite: 0->pi sin(x)', latex:'\\int_{0}^{\\pi} \\sin(x) \\, d x', expectNumeric: (val)=>Math.abs(val-2) < 1e-8},
+        {name:'Definite: 0->1 e^x', latex:'\\int_{0}^{1} e^{x} \\, d x', expectNumeric: (val)=>Math.abs(val - (Math.E - 1)) < 1e-8},
+        {name:'Definite: -1->1 x', latex:'\\int_{-1}^{1} x \\, d x', expectNumeric: (val)=>Math.abs(val - 0) < 1e-8}
+      ];
+
+      function runTests(){
+        const results = [];
+        for(const t of tests){
+          if(typeof mathField.latex === 'function') mathField.latex(t.latex);
+          const res = solveLatex(t.latex);
+          if(!res.ok){ results.push({name:t.name, ok:false, actual:res.text}); continue; }
+          const m = res.text.match(/≈\s*([^\)\n]+)/);
+          if(t.expectContains){ results.push({name:t.name, ok: res.text.indexOf(t.expectContains) !== -1, actual:res.text}); }
+          else if(t.expectNumeric){ if(!m) results.push({name:t.name, ok:false, actual:res.text}); else{ const num = parseFloat(m[1]); results.push({name:t.name, ok: t.expectNumeric(num), numeric:num, actual:res.text}); } }
+          else results.push({name:t.name, ok:true, actual:res.text});
+        }
+        return results;
+      }
+
+      document.getElementById('runTests').addEventListener('click', ()=>{
+        const el = document.getElementById('testResults'); el.innerHTML = 'Running tests...';
+        setTimeout(()=>{
+          const r = runTests(); el.innerHTML = ''; r.forEach(item=>{ const d = document.createElement('div'); d.innerHTML = `<strong>${item.name}:</strong> ${item.ok?'<span class="ok">PASS</span>':'<span class="bad">FAIL</span>'}` + (item.numeric!==undefined?(' (value='+item.numeric+')'):'') + `<div class="small"><pre>${item.actual||''}</pre></div>`; el.appendChild(d); });
+        },50);
+      });
+
+      statusEl.textContent = 'Ready.';
+      outputEl.textContent = 'Ready — enter an integral and click Solve.';
+
+    })();
+  </script>
+</body>
+</html>

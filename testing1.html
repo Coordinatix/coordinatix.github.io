@@ -179,7 +179,7 @@
     let scene, camera, renderer, controls, typingTimer;
     const equations = [];
     const meshes = [];
-    const resolution = 600;
+    const resolution = 400;
     const range = 10;
     const typingDelay = 100; // milliseconds
 
@@ -195,6 +195,21 @@
       controls = new THREE.OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
       controls.dampingFactor = 0.05;
+
+      // Prevent equation updates while dragging the graph
+       controls.addEventListener('start', () => {
+        clearTimeout(typingTimer); // cancel any pending updateEquation
+        });
+
+       controls.addEventListener('end', () => {
+      // Optional: re-run the last equation update after dragging ends
+      // If you don’t want this, you can leave this block empty
+       const lastIndex = equations.length - 1;
+         if (lastIndex >= 0 && equations[lastIndex] && equations[lastIndex].text.trim() !== '') {
+          updateEquation(lastIndex, equations[lastIndex].text);
+           }
+            });
+
 
       const axesHelper = new THREE.AxesHelper(5);
       scene.add(axesHelper);
