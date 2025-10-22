@@ -130,7 +130,7 @@
     rim.rotateX(Math.PI/2); scene.add(rim);
 
     // Photon trails: CPU-driven but with lifetime clamp to avoid repeated orbits.
-    const MAX_TRAILS = 30500;
+    const MAX_TRAILS = 10500;
     const trailPositions = new Float32Array(MAX_TRAILS * 3);
     const trailGeo = new TH.BufferGeometry(); trailGeo.setAttribute('position', new TH.BufferAttribute(trailPositions, 3));
     const trailMat = new TH.PointsMaterial({ size: 0.07, color:0xffcc88, transparent:true, opacity:0.9 });

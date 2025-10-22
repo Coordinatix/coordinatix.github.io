@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Calculus Studio — Integrate, Differentiate, Limits</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.gstatic.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <!-- KaTeX for math rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <!-- Math.js for parsing and symbolic derivative -->
+  <script src="https://cdn.jsdelivr.net/npm/mathjs@12.4.1/lib/browser/math.js"></script>
+  <!-- Plotly for graphing -->
+  <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+
+<style>
+  :root {
+    --bg0: #0B1020;
+    --bg1: #0E1530;
+    --bg2: #162042;
+    --glass: rgba(255, 255, 255, 0.08);
+    --border: rgba(255, 255, 255, 0.18);
+    --text: #e6e9f0;
+    --muted: #9ba3b0;
+    --accent: #7C5CFF;
+    --accent2: #00D4FF;
+    --danger: #ff5c7c;
+    --success: #33d69f;
+    --shadow: 0 30px 60px rgba(0,0,0,0.35);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    margin: 0;
+    font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
+    color: var(--text);
+    background: radial-gradient(1200px 600px at 15% 0%, #0f1c44 0%, var(--bg1) 40%, var(--bg0) 100%),
+                conic-gradient(from 220deg at 80% 30%, #0f1b36, #0b1020);
+    overflow-x: hidden;
+  }
+  .aurora {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    filter: blur(60px);
+    opacity: 0.35;
+  }
+  .blob {
+    position: absolute;
+    width: 40vw; height: 40vw;
+    background: radial-gradient(circle at 30% 30%, rgba(124,92,255,0.25), transparent 60%);
+    border-radius: 50%;
+    transform: translate(-10%, -10%);
+  }
+  .blob2 {
+    position: absolute;
+    width: 45vw; height: 45vw;
+    background: radial-gradient(circle at 70% 50%, rgba(0,212,255,0.25), transparent 70%);
+    border-radius: 50%;
+    right: -10%; bottom: -15%;
+  }
+
+header {
+  max-width: 1100px;
+  margin: 40px auto 20px;
+  padding: 0 24px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.brand {
+  display: flex; align-items: center; gap: 14px;
+}
+.logo {
+  width: 42px; height: 42px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border-radius: 12px;
+  box-shadow: 0 10px 28px rgba(124, 92, 255, 0.35), inset 0 0 24px rgba(255,255,255,0.25);
+}
+.brand h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+.tagline {
+  color: var(--muted);
+  margin: 6px 0 0;
+  font-size: 13px;
+}
+
+.container {
+  max-width: 1100px;
+  margin: 12px auto 80px;
+  padding: 24px;
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 24px;
+}
+
+.card {
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.04));
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  backdrop-filter: saturate(130%) blur(12px);
+  padding: 20px;
+}
+.card h2 {
+  margin: 0 0 12px;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+label {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+input[type="text"], input[type="number"], select, button, .chip {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.06);
+  color: var(--text);
+  outline: none;
+}
+input::placeholder { color: #adb4c2; }
+select { appearance: none; }
+.row { display: flex; gap: 14px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 10px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.06));
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px dashed rgba(255,255,255,0.18);
+}
+.chip small { color: var(--muted); }
+.actions { display: flex; gap: 12px; align-items: center; }
+.btn {
+  cursor: pointer;
+  border: none;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: #10121a;
+  box-shadow: 0 10px 24px rgba(0,212,255,0.25);
+}
+.btn-ghost {
+  background: rgba(255,255,255,0.06);
+  color: var(--text);
+}
+.btn:active { transform: translateY(1px); }
+
+.result {
+  margin-top: 12px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--border);
+  min-height: 56px;
+}
+.result .title {
+  font-size: 13px; color: var(--muted); margin-bottom: 8px;
+}
+.result .out {
+  font-size: 16px; font-weight: 600;
+}
+.error {
+  color: var(--danger);
+  font-size: 13px;
+  margin-top: 8px;
+}
+.ok { color: var(--success); }
+
+.panel {
+  display: grid; gap: 12px;
+}
+.plot {
+  width: 100%; height: 360px;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.04);
+}
+
+.footer {
+  max-width: 1100px;
+  margin: 12px auto;
+  padding: 0 24px;
+  color: var(--muted);
+  font-size: 12px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+
+    @media (max-width: 980px) {
+      .container { grid-template-columns: 1fr; }
+      header { flex-direction: column; align-items: flex-start; gap: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="aurora">
+    <div class="blob"></div>
+    <div class="blob2"></div>
+  </div>
+
+<header>
+  <div class="brand">
+    <div class="logo" aria-hidden="true"></div>
+    <div>
+      <h1>Calculus Studio</h1>
+      <p class="tagline">Differentiate, integrate, evaluate limits, and visualize functions.</p>
+    </div>
+  </div>
+  <div class="chip">
+    <small>Status</small>
+    <span class="ok">Ready</span>
+  </div>
+</header>
+
+<main class="container">
+  <section class="card panel">
+    <h2>Problem Setup</h2>
+    <div>
+      <label for="expr">Function f(x)</label>
+      <input id="expr" type="text" placeholder="e.g. sin(x)*exp(-x^2) or (x^3 - 2*x + 1)/log(x)" />
+    </div>
+    <div class="grid2">
+      <div>
+        <label for="variable">Variable</label>
+        <input id="variable" type="text" value="x" />
+      </div>
+      <div>
+        <label for="op">Operation</label>
+        <select id="op">
+          <option value="evaluate">Evaluate f(x0)</option>
+          <option value="differentiateSymbolic">Derivative (symbolic)</option>
+          <option value="differentiateNumeric">Derivative at x0 (numeric)</option>
+          <option value="integrateDefinite">Definite integral ∫ f dx from a to b</option>
+          <option value="limit">Limit of f(x) at x0</option>
+        </select>
+      </div>
+    </div>
+
+<div class="grid2">
+  <div>
+    <label for="x0">x0 (for evaluate/limit/derivative at point)</label>
+    <input id="x0" type="text" placeholder="e.g. 0, pi/3, sqrt(2)" />
+  </div>
+  <div>
+    <label for="interval">Interval [a, b] (for integral / plot)</label>
+    <input id="interval" type="text" placeholder="e.g. -2, 2" />
+  </div>
+</div>
+
+<div class="actions">
+  <button class="btn btn-primary" id="computeBtn">Compute</button>
+  <button class="btn btn-ghost" id="plotBtn">Plot f(x)</button>
+  <div class="chip"><small>Tolerance</small><span id="tolChip">1e-10</span></div>
+</div>
+
+  <div class="result">
+    <div class="title">Result</div>
+    <div class="out" id="resultLatex"></div>
+    <div class="error" id="errorMsg"></div>
+  </div>
+</section>
+
+  <section class="card">
+    <h2>Visualization</h2>
+    <div id="plot" class="plot"></div>
+    <div class="grid2" style="margin-top:12px;">
+      <div>
+        <label for="samples">Plot samples</label>
+        <input id="samples" type="number" min="50" max="2000" value="400" />
+      </div>
+      <div>
+        <label for="domain">Plot domain [xmin, xmax]</label>
+        <input id="domain" type="text" placeholder="e.g. -5, 5" />
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="footer">
+  <div>Supports standard math functions: sin, cos, tan, exp, log, sqrt, abs, floor, ceil, etc.</div>
+  <div>Symbolic by math.js; numeric by adaptive Simpson and robust finite differences.</div>
+</div>
+
+<script>
+  // Utility: parse a value with math.js (supports constants like pi, sqrt(2), etc.)
+  function parseValue(str) {
+    if (!str || !String(str).trim()) throw new Error("Value is empty.");
+    const node = math.parse(str);
+    const code = node.compile();
+    const val = code.evaluate();
+    const num = Number(val);
+    if (!isFinite(num)) throw new Error("Value evaluated to non-finite.");
+    return num;
+  }
+
+// Make f(x): returns a JS function for numeric evaluation
+function compileFunction(expr, variable='x') {
+  const node = math.parse(expr);
+  const code = node.compile();
+  return (x) => {
+    const scope = {};
+    scope[variable] = x;
+    const v = code.evaluate(scope);
+    const num = Number(v);
+    if (!isFinite(num)) throw new Error("f(x) returned non-finite number at x=" + x);
+    return num;
+  };
+}
+
+// Adaptive Simpson integration (provided; refined with domain guards)
+function integrateAdaptiveSimpson(f, a, b, opts = {}) {
+  const absTol = opts.absTol ?? 1e-10;
+  const relTol = opts.relTol ?? 1e-10;
+  const maxDepth = opts.maxDepth ?? 20;
+
+function simpson(fa, fm, fb, a, b) {
+  return (b - a) * (fa + 4 * fm + fb) / 6;
+}
+
+if (!isFinite(a) || !isFinite(b)) throw new Error("Integration limits must be finite.");
+if (a === b) return 0;
+
+const fa = f(a);
+const fb = f(b);
+const m = 0.5 * (a + b);
+const fm = f(m);
+const Sab = simpson(fa, fm, fb, a, b);
+
+function recurse(a, fa, m, fm, b, fb, Sab, depth) {
+  const lm = 0.5 * (a + m);
+  const rm = 0.5 * (m + b);
+  const flm = f(lm);
+  const frm = f(rm);
+
+const Sa = simpson(fa, flm, fm, a, m);
+const Sb = simpson(fm, frm, fb, m, b);
+const S12 = Sa + Sb;
+
+const err = Math.abs(S12 - Sab);
+const tol = 15 * Math.max(absTol, relTol * Math.abs(S12));
+
+  if (err <= tol || depth >= maxDepth) {
+    // Richardson correction
+    return S12 + (S12 - Sab) / 15;
+  }
+  return recurse(a, fa, lm, flm, m, fm, Sa, depth + 1)
+       + recurse(m, fm, rm, frm, b, fb, Sb, depth + 1);
+}
+
+  return recurse(a, fa, m, fm, b, fb, Sab, 0);
+}
+
+// Numeric derivative at x0 with adaptive step control
+function derivativeNumeric(f, x0) {
+  if (!isFinite(x0)) throw new Error("x0 must be finite.");
+  // Base step size scaled by magnitude of x0
+  let h = Math.max(1e-5, Math.abs(x0) * 1e-5);
+  // Central difference with Richardson extrapolation
+  function df(h) {
+    const f1 = f(x0 + h);
+    const f2 = f(x0 - h);
+    return (f1 - f2) / (2 * h);
+  }
+  const d1 = df(h);
+  const d2 = df(h / 2);
+  // Extrapolate: O(h^2) error -> combine
+  const rich = (4 * d2 - d1) / 3;
+  return rich;
+}
+
+// Numeric limit of f(x) at x0 using symmetric sampling and robustness
+function limitNumeric(f, x0) {
+  if (!isFinite(x0)) throw new Error("x0 must be finite.");
+  let h = Math.max(1e-5, Math.abs(x0) * 1e-5);
+  const samples = [];
+  for (let k = 0; k < 5; k++) {
+    const hp = h / Math.pow(2, k);
+    const left = f(x0 - hp);
+    const right = f(x0 + hp);
+    if (!isFinite(left) || !isFinite(right)) continue;
+    samples.push(0.5 * (left + right));
+  }
+  if (!samples.length) throw new Error("Could not sample finite values near x0.");
+  // Robust aggregate (trimmed mean)
+  samples.sort((a,b)=>a-b);
+  const trimmed = samples.slice(1, samples.length - 1);
+  const arr = trimmed.length ? trimmed : samples;
+  const avg = arr.reduce((s,v)=>s+v,0) / arr.length;
+  return avg;
+}
+
+// Render LaTeX using KaTeX
+function renderLatex(el, latex) {
+  katex.render(latex, el, { throwOnError: false, displayMode: false });
+}
+
+// Format number
+function fmtNumber(x) {
+  if (!isFinite(x)) return String(x);
+  const abs = Math.abs(x);
+  if (abs !== 0 && (abs < 1e-4 || abs >= 1e6)) {
+    return x.toExponential(8);
+  }
+  return Number(x.toFixed(10)).toString();
+}
+
+// Build LaTeX preview of f(x)
+function formatExprLatex(expr, variable) {
+  // Simple pass-through; math.js does not auto-LaTeX, but KaTeX handles many forms.
+  // Replace common functions for nicer look.
+  return `f(${variable}) = \\; \\text{${expr.replace(/\\/g,'\\\\')}}`;
+}
+
+// Compute handler
+const resultEl = document.getElementById('resultLatex');
+const errorEl = document.getElementById('errorMsg');
+
+document.getElementById('computeBtn').addEventListener('click', () => {
+  errorEl.textContent = '';
+  resultEl.textContent = '';
+  try {
+    const expr = document.getElementById('expr').value.trim();
+    const variable = document.getElementById('variable').value.trim() || 'x';
+    const op = document.getElementById('op').value;
+    const x0Str = document.getElementById('x0').value.trim();
+    const intervalStr = document.getElementById('interval').value.trim();
+
+if (!expr) throw new Error("Enter a function expression.");
+const f = compileFunction(expr, variable);
+
+    if (op === 'evaluate') {
+      if (!x0Str) throw new Error("Enter x0 for evaluation.");
+      const x0 = parseValue(x0Str);
+      const y = f(x0);
+      renderLatex(resultEl, `f(${variable}) = \\text{${expr}},\\quad ${variable}_0 = ${x0Str},\\quad f(${fmtNumber(x0)}) = ${fmtNumber(y)}`);
+    } else if (op === 'differentiateSymbolic') {
+      // Symbolic derivative via math.js
+      const dnode = math.derivative(expr, variable);
+      const latexExpr = dnode ? dnode.toString() : '(unavailable)';
+      renderLatex(resultEl, `\\frac{d}{d${variable}}\\, f(${variable}) = \\text{${latexExpr}}`);
+    } else if (op === 'differentiateNumeric') {
+      if (!x0Str) throw new Error("Enter x0 for derivative.");
+      const x0 = parseValue(x0Str);
+      const df = derivativeNumeric(f, x0);
+      renderLatex(resultEl, `\\left.\\dfrac{df}{d${variable}}\\right|_{${variable}=${fmtNumber(x0)}} \\approx ${fmtNumber(df)}`);
+    } else if (op === 'integrateDefinite') {
+      if (!intervalStr) throw new Error("Enter interval as a, b.");
+      const parts = intervalStr.split(',').map(s => s.trim());
+      if (parts.length !== 2) throw new Error("Interval must be two comma-separated values.");
+      const a = parseValue(parts[0]);
+      const b = parseValue(parts[1]);
+      const I = integrateAdaptiveSimpson(f, a, b, { absTol: 1e-10, relTol: 1e-10, maxDepth: 20 });
+      renderLatex(resultEl, `\\int_{${fmtNumber(a)}}^{${fmtNumber(b)}} f(${variable})\\, d${variable} \\approx ${fmtNumber(I)}`);
+    } else if (op === 'limit') {
+      if (!x0Str) throw new Error("Enter x0 for limit.");
+      const x0 = parseValue(x0Str);
+      const L = limitNumeric(f, x0);
+      renderLatex(resultEl, `\\lim_{${variable}\\to ${fmtNumber(x0)}} f(${variable}) \\approx ${fmtNumber(L)}`);
+    } else {
+      throw new Error("Unknown operation.");
+    }
+  } catch (err) {
+    errorEl.textContent = err.message || String(err);
+  }
+});
+
+// Plot handler
+document.getElementById('plotBtn').addEventListener('click', () => {
+  errorEl.textContent = '';
+  try {
+    const expr = document.getElementById('expr').value.trim();
+    const variable = document.getElementById('variable').value.trim() || 'x';
+    const domainStr = document.getElementById('domain').value.trim();
+    const samples = Number(document.getElementById('samples').value) || 400;
+    if (!expr) throw new Error("Enter a function expression.");
+    const f = compileFunction(expr, variable);
+    let xmin = -5, xmax = 5;
+    if (domainStr) {
+      const parts = domainStr.split(',').map(s => s.trim());
+      if (parts.length !== 2) throw new Error("Domain must be two comma-separated values.");
+      xmin = parseValue(parts[0]);
+      xmax = parseValue(parts[1]);
+    } else {
+      // fallback from integral interval if provided
+      const intervalStr = document.getElementById('interval').value.trim();
+      if (intervalStr) {
+        const parts = intervalStr.split(',').map(s => s.trim());
+        if (parts.length === 2) {
+          xmin = parseValue(parts[0]);
+          xmax = parseValue(parts[1]);
+        }
+      }
+    }
+    if (!(isFinite(xmin) && isFinite(xmax)) || xmin === xmax) throw new Error("Invalid domain.");
+    const x = [];
+    const y = [];
+    const N = Math.max(50, Math.min(2000, samples));
+    for (let i = 0; i < N; i++) {
+      const xi = xmin + (xmax - xmin) * (i / (N - 1));
+      let yi;
+      try { yi = f(xi); }
+      catch { yi = NaN; }
+      x.push(xi);
+      y.push(isFinite(yi) ? yi : NaN);
+    }
+    Plotly.newPlot('plot', [{
+      x, y, type: 'scatter', mode: 'lines',
+      line: { color: '#00D4FF', width: 2 },
+      hovertemplate: 'x=%{x:.6f}<br>f=%{y:.6f}<extra></extra>'
+    }], {
+      paper_bgcolor: 'rgba(0,0,0,0)',
+      plot_bgcolor: 'rgba(0,0,0,0)',
+      margin: { l: 40, r: 20, t: 10, b: 40 },
+      xaxis: { gridcolor: 'rgba(255,255,255,0.08)', zerolinecolor: 'rgba(255,255,255,0.18)', color: '#cdd3e0' },
+      yaxis: { gridcolor: 'rgba(255,255,255,0.08)', zerolinecolor: 'rgba(255,255,255,0.18)', color: '#cdd3e0' }
+    }, { displayModeBar: true, responsive: true });
+
+    // Update preview latex
+    renderLatex(resultEl, formatExprLatex(expr, variable));
+  } catch (err) {
+    errorEl.textContent = err.message || String(err);
+  }
+});
+
+    // Initialize
+    renderLatex(resultEl, "Enter an expression and choose an operation.");
+  </script>
+</body>
+</html>
