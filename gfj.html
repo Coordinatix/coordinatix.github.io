@@ -7,10 +7,6 @@
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.gstatic.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
-  <!-- MathQuill dependencies -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.css">
-  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.js"></script>
   <!-- KaTeX for math rendering -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
@@ -18,6 +14,10 @@
   <script src="https://cdn.jsdelivr.net/npm/mathjs@12.4.1/lib/browser/math.js"></script>
   <!-- Plotly for graphing -->
   <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+  <!-- MathQuill dependencies -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.js"></script>
 
   <style>
     :root {
@@ -191,38 +191,40 @@ input[type="text"], input[type="number"], select {
   transition: all 0.2s ease;
 }
 
-/* MathQuill Styling */
-.mq-editable-field {
-  border: none !important;
-  box-shadow: none !important;
-  background: transparent !important;
-  color: var(--text) !important;
-  font-size: 16px !important;
-}
-
-.math-input-wrapper {
-  position: relative;
-  padding: 12px 16px;
+/* MathQuill styling */
+.mathquill-field {
+  width: 100%;
+  min-height: 50px;
+  padding: 8px 16px;
   border-radius: 14px;
   border: 1px solid var(--border);
   background: rgba(255,255,255,0.06);
-  margin-bottom: 8px;
+  color: var(--text);
   transition: all 0.2s ease;
+  margin-bottom: 8px;
 }
 
-.math-input-wrapper:hover {
+.mathquill-field:hover {
   border-color: var(--glass2);
   background: rgba(255,255,255,0.08);
 }
 
-.math-input-wrapper:focus-within {
+.mathquill-field:focus-within {
   border-color: var(--accent);
   background: rgba(255,255,255,0.08);
   box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.15);
 }
 
-.mq-math-mode {
+/* Custom MathQuill theme */
+.mq-editable-field {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
   color: var(--text) !important;
+}
+
+.mq-editable-field .mq-cursor {
+  border-color: var(--accent) !important;
 }
 
 .mq-math-mode .mq-sup {
@@ -237,88 +239,12 @@ input[type="text"], input[type="number"], select {
   font-size: 0.85em;
 }
 
-.math-suggestions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 8px;
+.mq-math-mode {
+  font-size: 16px;
+}
+
+.mq-math-mode .mq-fraction {
   padding: 0 4px;
-}
-
-.math-suggestion {
-  background: var(--glass);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 4px 8px;
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  color: var(--text);
-}
-
-.math-suggestion:hover {
-  background: var(--glass2);
-  border-color: var(--accent);
-}
-
-.math-keyboard-toggle {
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: var(--glass);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  color: var(--text);
-}
-
-.math-keyboard-toggle:hover {
-  background: var(--glass2);
-  border-color: var(--accent);
-}
-
-.math-keyboard {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
-  right: 0;
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 12px;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  z-index: 10;
-  box-shadow: var(--shadow);
-  display: none;
-}
-
-.math-keyboard.active {
-  display: grid;
-}
-
-.math-key {
-  background: var(--glass);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  color: var(--text);
-}
-
-.math-key:hover {
-  background: var(--glass2);
-  border-color: var(--accent);
 }
 .chip {
   display: inline-flex;
@@ -486,13 +412,14 @@ header .chip {
 
 .result {
   margin-top: 16px;
-  padding: 16px 20px;
+  padding: 20px 24px;
   border-radius: 16px;
-  background: linear-gradient(180deg, var(--glass), rgba(255,255,255,0.04));
+  background: linear-gradient(180deg, var(--glass), rgba(255,255,255,0.03));
   border: 1px solid var(--border);
   min-height: 56px;
   transition: all 0.3s ease;
   position: relative;
+  backdrop-filter: blur(12px);
 }
 .result:hover {
   transform: translateY(-1px);
@@ -502,11 +429,12 @@ header .chip {
 .result .title {
   font-size: 13px;
   color: var(--muted);
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   font-weight: 500;
   display: flex;
   align-items: center;
   gap: 8px;
+  letter-spacing: 0.3px;
 }
 .result .title::before {
   content: "•";
@@ -515,11 +443,19 @@ header .chip {
   line-height: 1;
 }
 .result .out {
-  font-size: 16px;
-  font-weight: 600;
-  line-height: 1.5;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.6;
+  letter-spacing: 0.2px;
   overflow-x: auto;
-  padding-bottom: 4px;
+  padding: 4px 0 8px;
+  color: var(--text);
+}
+.result .out .katex {
+  font-size: 1.1em;
+}
+.result .out .katex-html {
+  white-space: normal;
 }
 .result .out::-webkit-scrollbar {
   height: 4px;
@@ -707,17 +643,10 @@ header .chip {
     <h2>Problem Setup</h2>
     <div>
       <label for="expr">Function f(x)</label>
-      <div class="math-input-wrapper">
+      <div class="mathquill-field">
         <span id="math-input"></span>
-        <button class="math-keyboard-toggle" id="keyboardToggle">⌨</button>
-        <input type="hidden" id="expr" />
-        <div class="math-keyboard" id="mathKeyboard">
-          <!-- Will be populated by JavaScript -->
-        </div>
       </div>
-      <div class="math-suggestions" id="mathSuggestions">
-        <!-- Will be populated by JavaScript -->
-      </div>
+      <input id="expr" type="hidden" />
     </div>
     <div class="grid2">
       <div>
@@ -782,121 +711,95 @@ header .chip {
 </div>
 
 <script>
-  // Initialize MathQuill
-  var MQ = MathQuill.getInterface(2);
-  var mathField;
+    // Initialize MathQuill
+    var MQ = MathQuill.getInterface(2);
+    var mathField;
 
-  // Common mathematical expressions and functions
-  const suggestions = [
-    { latex: 'x^2', title: 'Square' },
-    { latex: '\\sqrt{x}', title: 'Square root' },
-    { latex: 'e^x', title: 'Exponential' },
-    { latex: '\\sin(x)', title: 'Sine' },
-    { latex: '\\cos(x)', title: 'Cosine' }
-  ];
-
-  // Advanced mathematical functions for keyboard
-  const mathKeys = [
-    { latex: '+', type: 'operator' },
-    { latex: '-', type: 'operator' },
-    { latex: '\\cdot', type: 'operator', display: '×' },
-    { latex: '\\div', type: 'operator', display: '÷' },
-    { latex: '(', type: 'bracket' },
-    { latex: ')', type: 'bracket' },
-    { latex: '^', type: 'operator', display: 'x^n' },
-    { latex: '_', type: 'operator', display: 'x_n' },
-    { latex: '\\sqrt', type: 'function', display: '√' },
-    { latex: '\\frac', type: 'template', display: 'a/b' },
-    { latex: '\\sin', type: 'function' },
-    { latex: '\\cos', type: 'function' },
-    { latex: '\\tan', type: 'function' },
-    { latex: '\\ln', type: 'function' },
-    { latex: 'e^', type: 'template' },
-    { latex: '\\pi', type: 'constant', display: 'π' }
-  ];
-
-  document.addEventListener('DOMContentLoaded', function() {
-    // Initialize MathQuill field
-    const mathInput = document.getElementById('math-input');
-    mathField = MQ.MathField(mathInput, {
-      spaceBehavesLikeTab: true,
-      handlers: {
-        edit: function() {
-          const latex = mathField.latex();
-          document.getElementById('expr').value = latexToMathJS(latex);
+    document.addEventListener('DOMContentLoaded', function() {
+      // Initialize the math input field
+      var mathFieldSpan = document.getElementById('math-input');
+      mathField = MQ.MathField(mathFieldSpan, {
+        spaceBehavesLikeTab: true,
+        handlers: {
+          edit: function() {
+            // Convert MathQuill latex to math.js expression
+            var latex = mathField.latex();
+            var expr = latexToMathJS(latex);
+            document.getElementById('expr').value = expr;
+          }
         }
-      }
+      });
+      
+      // Set initial expression
+      mathField.latex('x^2');
+
+      // Add some helpful buttons for common math functions
+      var commonFunctions = [
+        {latex: 'x^2', title: 'Square'},
+        {latex: '\\frac{}{x}', title: 'Fraction'},
+        {latex: '\\sqrt{}', title: 'Square root'},
+        {latex: 'e^{}', title: 'Exponential'},
+        {latex: '\\sin(x)', title: 'Sine'},
+        {latex: '\\cos(x)', title: 'Cosine'},
+        {latex: '\\ln(x)', title: 'Natural log'}
+      ];
+
+      // Create math function buttons
+      var mathBtns = document.createElement('div');
+      mathBtns.className = 'actions';
+      mathBtns.style.margin = '8px 0 12px';
+      
+      commonFunctions.forEach(function(fn) {
+        var btn = document.createElement('button');
+        btn.className = 'btn btn-ghost';
+        btn.style.minWidth = 'auto';
+        btn.style.padding = '6px 12px';
+        btn.style.fontSize = '13px';
+        
+        // Render button label with KaTeX
+        var label = document.createElement('span');
+        katex.render(fn.latex, label, { throwOnError: false });
+        btn.appendChild(label);
+        
+        btn.title = fn.title;
+        btn.onclick = function() {
+          mathField.write(fn.latex);
+          mathField.focus();
+        };
+        
+        mathBtns.appendChild(btn);
+      });
+      
+      // Add buttons after the math input
+      var mathInput = document.querySelector('.mathquill-field');
+      mathInput.parentNode.insertBefore(mathBtns, mathInput.nextSibling);
     });
 
-    // Initialize suggestions
-    const suggestionContainer = document.getElementById('mathSuggestions');
-    suggestions.forEach(suggestion => {
-      const btn = document.createElement('button');
-      btn.className = 'math-suggestion';
-      btn.innerHTML = `$${suggestion.latex}$`;
-      btn.title = suggestion.title;
-      btn.onclick = () => {
-        mathField.write(suggestion.latex);
-        mathField.focus();
-      };
-      suggestionContainer.appendChild(btn);
-      // Render the math in the button
-      katex.render(suggestion.latex, btn, { throwOnError: false });
-    });
+    // Convert LaTeX to math.js expression
+    function latexToMathJS(latex) {
+      // Replace LaTeX commands with math.js equivalents
+      return latex
+        .replace(/\\frac{([^}]*)}{([^}]*)}/g, '($1)/($2)') // Fractions
+        .replace(/\\sqrt{([^}]*)}/g, 'sqrt($1)') // Square root
+        .replace(/([0-9a-zA-Z_.]+)\^{([^}]*)}/g, '$1^($2)') // Exponents with braces
+        .replace(/([0-9a-zA-Z_.]+)\^(\S)/g, '$1^$2') // Simple exponents
+        .replace(/\\sin/g, 'sin') // Sine
+        .replace(/\\cos/g, 'cos') // Cosine
+        .replace(/\\tan/g, 'tan') // Tangent
+        .replace(/\\ln/g, 'log') // Natural log
+        .replace(/\\pi/g, 'pi') // Pi constant
+        .replace(/\\left/g, '') // Remove \left
+        .replace(/\\right/g, '') // Remove \right
+        .replace(/\\cdot/g, '*') // Multiplication dot
+        .replace(/\\times/g, '*') // Multiplication times
+        .replace(/\\div/g, '/') // Division
+        .replace(/\{|\}/g, '') // Remove remaining braces
+        .replace(/\\exp/g, 'exp') // Exponential function
+        .trim();
+    }
 
-    // Initialize keyboard
-    const keyboard = document.getElementById('mathKeyboard');
-    mathKeys.forEach(key => {
-      const btn = document.createElement('button');
-      btn.className = 'math-key';
-      btn.innerHTML = key.display || `$${key.latex}$`;
-      btn.onclick = () => {
-        mathField.write(key.latex);
-        mathField.focus();
-      };
-      keyboard.appendChild(btn);
-      if (!key.display) {
-        katex.render(key.latex, btn, { throwOnError: false });
-      }
-    });
-
-    // Toggle keyboard
-    const keyboardToggle = document.getElementById('keyboardToggle');
-    keyboardToggle.onclick = () => {
-      keyboard.classList.toggle('active');
-    };
-
-    // Close keyboard when clicking outside
-    document.addEventListener('click', (e) => {
-      if (!e.target.closest('.math-input-wrapper')) {
-        keyboard.classList.remove('active');
-      }
-    });
-
-    // Set initial expression
-    mathField.latex('x^2');
-  });
-
-  // Convert LaTeX to math.js expression
-  function latexToMathJS(latex) {
-    return latex
-      .replace(/\\cdot/g, '*')
-      .replace(/\\div/g, '/')
-      .replace(/\\frac{([^}]*)}{([^}]*)}/g, '($1)/($2)')
-      .replace(/\\sqrt{([^}]*)}/g, 'sqrt($1)')
-      .replace(/([0-9a-zA-Z_.]+)\^{([^}]*)}/g, '$1^($2)')
-      .replace(/([0-9a-zA-Z_.]+)\^(\S)/g, '$1^$2')
-      .replace(/\\sin/g, 'sin')
-      .replace(/\\cos/g, 'cos')
-      .replace(/\\tan/g, 'tan')
-      .replace(/\\ln/g, 'log')
-      .replace(/\\pi/g, 'pi')
-      .replace(/\\left|\\right/g, '')
-      .replace(/\{|\}/g, '')
-      .trim();
-  }
-
-  // Utility: parse a value with math.js (supports constants like pi, sqrt(2), etc.)
+    // Utility: parse a value with math.js (supports constants like pi, sqrt(2), etc.)
+  
   function parseValue(str) {
     if (!str || !String(str).trim()) throw new Error("Value is empty.");
     const node = math.parse(str);
@@ -909,23 +812,42 @@ header .chip {
 
 // Make f(x): returns a JS function for numeric evaluation
 function compileFunction(expr, variable='x') {
-  const node = math.parse(expr);
-  const code = node.compile();
-  return (x) => {
-    const scope = {};
-    scope[variable] = x;
-    const v = code.evaluate(scope);
-    const num = Number(v);
-    if (!isFinite(num)) throw new Error("f(x) returned non-finite number at x=" + x);
-    return num;
-  };
+  try {
+    // Simplify the expression first
+    const simplified = math.simplify(expr).toString();
+    console.log('Simplified expression:', simplified);
+    
+    // Create a compiled function
+    const fn = math.compile(simplified);
+    
+    return (x) => {
+      try {
+        const scope = {};
+        scope[variable] = x;
+        const result = fn.evaluate(scope);
+        const num = Number(result);
+        
+        if (!isFinite(num)) {
+          console.log(`Warning: f(${x}) = ${num}`);
+          throw new Error(`Function returned ${num} at x = ${x}`);
+        }
+        return num;
+      } catch (err) {
+        console.log(`Error evaluating at x = ${x}:`, err);
+        throw err;
+      }
+    };
+  } catch (err) {
+    console.log('Error compiling function:', err);
+    throw new Error('Could not compile function: ' + err.message);
+  }
 }
 
-// Adaptive Simpson integration (provided; refined with domain guards)
+// Adaptive Simpson integration with improved stability
 function integrateAdaptiveSimpson(f, a, b, opts = {}) {
-  const absTol = opts.absTol ?? 1e-10;
-  const relTol = opts.relTol ?? 1e-10;
-  const maxDepth = opts.maxDepth ?? 20;
+  const absTol = opts.absTol ?? 1e-8;  // Slightly relaxed tolerance
+  const relTol = opts.relTol ?? 1e-8;
+  const maxDepth = opts.maxDepth ?? 25;  // Increased max depth
 
 function simpson(fa, fm, fb, a, b) {
   return (b - a) * (fa + 4 * fm + fb) / 6;
@@ -967,19 +889,43 @@ const tol = 15 * Math.max(absTol, relTol * Math.abs(S12));
 // Numeric derivative at x0 with adaptive step control
 function derivativeNumeric(f, x0) {
   if (!isFinite(x0)) throw new Error("x0 must be finite.");
-  // Base step size scaled by magnitude of x0
-  let h = Math.max(1e-5, Math.abs(x0) * 1e-5);
-  // Central difference with Richardson extrapolation
-  function df(h) {
-    const f1 = f(x0 + h);
-    const f2 = f(x0 - h);
-    return (f1 - f2) / (2 * h);
+  
+  // Adaptive step size based on x0
+  const h0 = Math.max(1e-6, Math.abs(x0) * 1e-6);
+  const steps = [h0, h0/2, h0/4];
+  
+  // Central difference approximations at different step sizes
+  const approximations = steps.map(h => {
+    try {
+      const fplus = f(x0 + h);
+      const fminus = f(x0 - h);
+      if (!isFinite(fplus) || !isFinite(fminus)) {
+        throw new Error("Function not defined near x0");
+      }
+      return {
+        h: h,
+        df: (fplus - fminus) / (2 * h)
+      };
+    } catch (e) {
+      console.log(`Error computing derivative with h=${h}:`, e);
+      throw e;
+    }
+  });
+
+  // Richardson extrapolation with error estimation
+  const d1 = approximations[0].df;
+  const d2 = approximations[1].df;
+  const d3 = approximations[2].df;
+  
+  // Check for convergence
+  const diff12 = Math.abs(d2 - d1);
+  const diff23 = Math.abs(d3 - d2);
+  if (diff23 > diff12) {
+    throw new Error("Derivative approximation not converging");
   }
-  const d1 = df(h);
-  const d2 = df(h / 2);
-  // Extrapolate: O(h^2) error -> combine
-  const rich = (4 * d2 - d1) / 3;
-  return rich;
+  
+  // Fourth-order accurate approximation using Richardson extrapolation
+  return (16 * d2 - d1) / 15;
 }
 
 // Numeric limit of f(x) at x0 using symmetric sampling and robustness
@@ -1003,27 +949,47 @@ function limitNumeric(f, x0) {
   return avg;
 }
 
-// Render LaTeX using KaTeX
+// Render LaTeX using MathQuill
 function renderLatex(el, latex) {
-  katex.render(latex, el, { 
-    throwOnError: false, 
-    displayMode: true,
-    trust: true,
-    macros: {
-      "\\derivative": "\\frac{d}{d#1}",  // Custom macro for derivative
-    },
-    strict: false
-  });
+  // Create a new span for MathQuill to use
+  let span = document.createElement('span');
+  el.innerHTML = '';
+  el.appendChild(span);
+  
+  // Initialize MathQuill on the span
+  let mq = MQ.StaticMath(span);
+  mq.latex(latex);
 }
 
-// Format number
+// Format number for display with proper rounding and handling of special cases
 function fmtNumber(x) {
-  if (!isFinite(x)) return String(x);
-  const abs = Math.abs(x);
-  if (abs !== 0 && (abs < 1e-4 || abs >= 1e6)) {
-    return x.toExponential(8);
+  if (!isFinite(x)) {
+    if (isNaN(x)) return "\\text{undefined}";
+    return x > 0 ? "\\infty" : "-\\infty";
   }
-  return Number(x.toFixed(10)).toString();
+  
+  const abs = Math.abs(x);
+  // Handle numbers very close to zero
+  if (abs < 1e-14) return "0";
+  
+  if (abs < 1e-4 || abs >= 1e4) {
+    // Scientific notation for very small/large numbers
+    const e = x.toExponential(4);
+    const parts = e.split('e');
+    return parts[0] + "\\times 10^{" + parseInt(parts[1]) + "}";
+  }
+  
+  // Regular numbers: show up to 6 significant digits, trim trailing zeros
+  let s = x.toPrecision(6);
+  s = s.replace(/\.?0+$/, ""); // Remove trailing zeros and decimal point
+  return s;
+}
+
+// Build LaTeX preview of f(x)
+function formatExprLatex(expr, variable) {
+  // Simple pass-through; math.js does not auto-LaTeX, but KaTeX handles many forms.
+  // Replace common functions for nicer look.
+  return `f(${variable}) = \\; \\text{${expr.replace(/\\/g,'\\\\')}}`;
 }
 
 // Compute handler
@@ -1031,8 +997,8 @@ const resultEl = document.getElementById('resultLatex');
 const errorEl = document.getElementById('errorMsg');
 
 document.getElementById('computeBtn').addEventListener('click', () => {
-  errorEl.textContent = '';
-  resultEl.textContent = '';
+  errorEl.style.display = 'none';
+  resultEl.innerHTML = '';
   try {
     const expr = document.getElementById('expr').value.trim();
     const variable = document.getElementById('variable').value.trim() || 'x';
@@ -1047,82 +1013,72 @@ const f = compileFunction(expr, variable);
       if (!x0Str) throw new Error("Enter x0 for evaluation.");
       const x0 = parseValue(x0Str);
       const y = f(x0);
-
-      try {
-        // Get the function in proper LaTeX
-        const node = math.parse(expr);
-        const functionLatex = node.toTex({
-          parenthesis: 'keep',
-          implicit: 'hide'
-        });
-
-        // Parse x0 to get its LaTeX representation
-        const x0Node = math.parse(x0Str);
-        const x0Latex = x0Node.toTex({
-          parenthesis: 'keep',
-          implicit: 'hide'
-        });
-
-        // Format the complete result with proper alignment
-        const resultLatex = `\\begin{aligned}
-          f(${variable}) &= ${functionLatex} \\\\[6pt]
-          ${variable}_0 &= ${x0Latex} \\\\[6pt]
-          f(${x0Latex}) &= ${fmtNumber(y)}
-        \\end{aligned}`;
-        
-        renderLatex(resultEl, resultLatex);
-      } catch (err) {
-        // Fallback to simple format if parsing fails
-        renderLatex(resultEl, `f(${variable}) = ${expr},\\quad f(${x0Str}) = ${fmtNumber(y)}`);
-      }
+      renderLatex(resultEl, `f(${variable})=${mathField.latex()},\\ ${variable}_0=${x0Str},\\ f(${fmtNumber(x0)})=${fmtNumber(y)}`);
     } else if (op === 'differentiateSymbolic') {
       try {
-        // Get the original function in LaTeX
-        const originalNode = math.parse(expr);
-        const originalLatex = originalNode.toTex({
-          parenthesis: 'keep',
-          implicit: 'hide'
-        });
-
-        // Get the derivative
-        const dnode = math.derivative(expr, variable);
+        // First try to simplify the expression
+        const simplified = math.simplify(expr);
+        console.log('Simplified:', simplified.toString());
         
-        // Convert derivative to LaTeX
-        const derivativeLatex = dnode.toTex({
-          parenthesis: 'keep',
-          implicit: 'hide'
-        });
-
-        // Format the complete result with proper spacing and alignment
-        const resultLatex = `f(${variable}) = ${originalLatex}\\\\[8pt]
-        \\frac{d}{d${variable}}f(${variable}) = ${derivativeLatex}`;
+        // Get symbolic derivative
+        const derivative = math.derivative(simplified, variable);
+        console.log('Derivative:', derivative.toString());
         
-        renderLatex(resultEl, resultLatex);
+        // Simplify the derivative
+        const simplifiedDerivative = math.simplify(derivative);
+        console.log('Simplified derivative:', simplifiedDerivative.toString());
+        
+        // Convert to LaTeX with proper formatting
+        const derivativeLatex = simplifiedDerivative.toTex({
+          implicit: 'hide',
+          parenthesis: 'keep'
+        });
+        
+        renderLatex(resultEl, `\\frac{d}{d${variable}}f(${variable})=${derivativeLatex}`);
       } catch (err) {
+        console.error('Symbolic differentiation error:', err);
         throw new Error("Could not compute symbolic derivative: " + err.message);
       }
     } else if (op === 'differentiateNumeric') {
       if (!x0Str) throw new Error("Enter x0 for derivative.");
       const x0 = parseValue(x0Str);
-      const df = derivativeNumeric(f, x0);
-      renderLatex(resultEl, `\\left.\\dfrac{df}{d${variable}}\\right|_{${variable}=${fmtNumber(x0)}} \\approx ${fmtNumber(df)}`);
+      try {
+        const df = derivativeNumeric(f, x0);
+        if (!isFinite(df)) throw new Error("Derivative is undefined at this point.");
+        renderLatex(resultEl, `\\left.\\frac{df}{d${variable}}\\right|_{${variable}=${fmtNumber(x0)}}=${fmtNumber(df)}`);
+      } catch (err) {
+        throw new Error("Could not compute derivative at x0=" + x0Str + ". Function might be undefined or discontinuous there.");
+      }
     } else if (op === 'integrateDefinite') {
       if (!intervalStr) throw new Error("Enter interval as a, b.");
       const parts = intervalStr.split(',').map(s => s.trim());
       if (parts.length !== 2) throw new Error("Interval must be two comma-separated values.");
-      const a = parseValue(parts[0]);
-      const b = parseValue(parts[1]);
-      const I = integrateAdaptiveSimpson(f, a, b, { absTol: 1e-10, relTol: 1e-10, maxDepth: 20 });
-      renderLatex(resultEl, `\\int_{${fmtNumber(a)}}^{${fmtNumber(b)}} f(${variable})\\, d${variable} \\approx ${fmtNumber(I)}`);
+      try {
+        const a = parseValue(parts[0]);
+        const b = parseValue(parts[1]);
+        // Check for valid integration bounds
+        if (a >= b) throw new Error("Lower bound must be less than upper bound.");
+        const I = integrateAdaptiveSimpson(f, a, b, { absTol: 1e-10, relTol: 1e-10, maxDepth: 20 });
+        if (!isFinite(I)) throw new Error("Integral is divergent or undefined.");
+        renderLatex(resultEl, `\\int_{${fmtNumber(a)}}^{${fmtNumber(b)}}f(${variable})\\,d${variable}=${fmtNumber(I)}`);
+      } catch (err) {
+        throw new Error("Integration failed. Check if function is continuous on the interval: " + err.message);
+      }
     } else if (op === 'limit') {
       if (!x0Str) throw new Error("Enter x0 for limit.");
       const x0 = parseValue(x0Str);
-      const L = limitNumeric(f, x0);
-      renderLatex(resultEl, `\\lim_{${variable}\\to ${fmtNumber(x0)}} f(${variable}) \\approx ${fmtNumber(L)}`);
+      try {
+        const L = limitNumeric(f, x0);
+        if (!isFinite(L)) throw new Error("Limit does not exist or is infinite.");
+        renderLatex(resultEl, `\\lim_{${variable}\\to ${fmtNumber(x0)}}f(${variable})=${fmtNumber(L)}`);
+      } catch (err) {
+        throw new Error("Could not determine limit. Function might have a discontinuity or undefined behavior near x0=" + x0Str);
+      }
     } else {
       throw new Error("Unknown operation.");
     }
   } catch (err) {
+    errorEl.style.display = 'flex';
     errorEl.textContent = err.message || String(err);
   }
 });
@@ -1178,34 +1134,18 @@ document.getElementById('plotBtn').addEventListener('click', () => {
       yaxis: { gridcolor: 'rgba(255,255,255,0.08)', zerolinecolor: 'rgba(255,255,255,0.18)', color: '#cdd3e0' }
     }, { displayModeBar: true, responsive: true });
 
-    // Create a nicer formatted result with proper math formatting
-    let resultLatex = `f(${variable}) = `;
-    
-    // Convert the expression to proper LaTeX
-    try {
-      // Parse with math.js and convert to LaTeX
-      const node = math.parse(expr);
-      const latex = node.toTex({
-        parenthesis: 'keep',
-        implicit: 'hide'
-      });
-      resultLatex += latex;
-    } catch {
-      // Fallback if math.js can't parse it
-      resultLatex += `\\text{${expr}}`;
-    }
-
-    // Add the domain information
-    resultLatex += `,\\quad x \\in [${fmtNumber(xmin)}, ${fmtNumber(xmax)}]`;
-    
-    renderLatex(resultEl, resultLatex);
+    // Update preview latex
+    renderLatex(resultEl, formatExprLatex(expr, variable));
   } catch (err) {
     errorEl.textContent = err.message || String(err);
   }
 });
 
     // Initialize
-    renderLatex(resultEl, "Enter an expression and choose an operation.");
+    resultEl.innerHTML = '<div style="color: var(--muted); font-size: 14px;">Enter an expression and choose an operation.</div>';
+
+    // Hide error message initially
+    errorEl.style.display = 'none';
   </script>
 </body>
 </html>
