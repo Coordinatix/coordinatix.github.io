@@ -88,7 +88,7 @@
 
   // install-friendly manifest creation
   function createManifest(){
-    const m = {name:'TicTacToe','short_name':'T3',start_url:'.',display:'standalone',background_color:'#ffffff',icons:[{src:'icon-192.png',sizes:'192x192'},{src:'icon-512.png',sizes:'512x512'}]};
+    const m = {name:'TicTacToe','short_name':'T3',start_url:'.',display:'standalone',background_color:'#ffffff',icons:[{src:'images/ico.png',sizes:'192x192'},{src:'images/ico.png',sizes:'512x512'}]};
     const blob = new Blob([JSON.stringify(m)],{type:'application/json'}); const url=URL.createObjectURL(blob); const link=document.createElement('link'); link.rel='manifest'; link.href=url; document.head.appendChild(link);
   }
 

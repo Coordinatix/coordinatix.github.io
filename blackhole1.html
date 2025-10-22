@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Interactive Black Hole — Optimized (Disk: inner=R, outer=2R)</title>
+  <style>
+    html,body{height:100%;margin:0;background:#000;overflow:hidden;font-family:Inter,system-ui, Arial}
+    #ui{position:fixed;left:12px;top:12px;color:#ddd;z-index:20;backdrop-filter:blur(6px)}
+    .panel{background:rgba(0,0,0,0.45);padding:10px;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.7)}
+    label{display:block;font-size:13px;margin:6px 0}
+    input[type=range]{width:200px}
+    button{margin-top:6px;padding:6px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.02);color:#fff}
+    #credits{position:fixed;right:12px;bottom:12px;color:#888;font-size:12px}
+    #errorOverlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);color:#f66;display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px;box-sizing:border-box;display:none}
+    #errorOverlay .box{max-width:780px;background:rgba(20,10,10,0.6);padding:20px;border-radius:8px;border:1px solid rgba(255,100,100,0.08)}
+    #errorOverlay h2{margin:0 0 8px 0;color:#fff}
+    #errorOverlay p{color:#f88;margin:8px 0}
+    #errorOverlay code{background:#111;color:#ffb;border-radius:4px;padding:2px 6px}
+  </style>
+</head>
+<body>
+  <div id="ui" class="panel">
+    <div style="font-weight:600">Black Hole</div>
+    <label>Mass (scale): <span id="massVal">1.0</span></label>
+    <input id="mass" type="range" min="0.2" max="5" step="0.01" value="1.0">
+
+    <label>Lens Strength: <span id="lensVal">0.6</span></label>
+    <input id="lens" type="range" min="0" max="2" step="0.01" value="0.6">
+
+    <label>Disk Brightness: <span id="diskVal">1.0</span></label>
+    <input id="disk" type="range" min="0" max="3" step="0.01" value="1.0">
+
+    <button id="toggleTrails">Toggle Photon Trails</button>
+    <button id="toggleDiskWarp">Toggle Disk Warp</button>
+    <div style="font-size:12px;color:#9aa; margin-top:6px">Use mouse to orbit/pan/zoom.</div>
+  </div>
+  <div id="credits">Three.js • OrbitControls • shader lensing (approx.)</div>
+
+  <div id="errorOverlay"><div class="box"><h2>Module Load Error</h2>
+    <p>The page failed to load local <code>three</code> modules. This build requires local relative imports (no CDN) to work in sandboxed environments.</p>
+    <p>To fix, download the following files into the <code>same folder</code> as this HTML file:</p>
+    <ul style="color:#ffc">
+      <li><code>three.module.js</code> — from the Three.js build (e.g. <code>/build/three.module.js</code>).</li>
+      <li><code>examples/jsm/controls/OrbitControls.js</code> — from the Three.js examples (maintain the folder structure <code>examples/jsm/controls/OrbitControls.js</code>).</li>
+    </ul>
+    <p>Then reload this page. If you prefer a CDN-based page, tell me and I'll provide a CDN version.</p>
+  </div></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.134/examples/js/controls/OrbitControls.js"></script>
+
+  <script>
+  // Optimized black hole scene. Integrates: horizon mask, aspect-correct lensing, disk occlusion,
+  // particle lifetime clamp to avoid repeated orbits, disk from BH_radius -> 2 * BH_radius.
+
+  window.addEventListener('load', function(){ (function(){
+    const TH = THREE;
+    const showError = (msg)=>{ const o=document.getElementById('errorOverlay'); o.style.display='flex'; console.error(msg); };
+
+    // Renderer
+    const renderer = new TH.WebGLRenderer({antialias:true, alpha:true});
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
+    renderer.setClearColor(0x000000, 1);
+    document.body.appendChild(renderer.domElement);
+
+    // Scene & camera
+    const scene = new TH.Scene();
+    scene.background = new TH.Color(0x000000);
+    const camera = new TH.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 20000);
+    camera.position.set(0, 10, 120);
+    camera.lookAt(0, 0, 0);
+
+    const controls = new TH.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true; controls.dampingFactor = 0.08;
+
+    // Lights
+    scene.add(new TH.AmbientLight(0xffffff, 0.5));
+
+    // Parameters
+    const BH_radius = 4.0; // visual event horizon radius
+
+    // Starfield (low-poly sphere + canvas texture)
+    const stars = new TH.Mesh(new TH.SphereGeometry(7000, 48, 48), new TH.MeshBasicMaterial({map: generateStarTexture(2048), side: TH.BackSide}));
+    scene.add(stars);
+
+    // Black hole sphere (pure black) - ensure no scaling
+    const bh = new TH.Mesh(new TH.SphereGeometry(BH_radius, 64, 64), new TH.MeshBasicMaterial({color:0x000000}));
+    bh.position.set(0,0,0);
+    scene.add(bh);
+
+    // Accretion disk: inner = BH_radius, outer = 2 * BH_radius (wider disk as requested)
+    const diskInner = BH_radius;
+    const diskOuter = BH_radius * 2.0; // user's requested width
+    const diskGeo = new TH.RingGeometry(diskInner, diskOuter, 512, 1);
+    diskGeo.rotateX(Math.PI/2);
+
+    const diskMat = new TH.ShaderMaterial({
+      transparent: true,
+      uniforms: {
+        time: { value: 0.0 },
+        brightness: { value: 1.0 },
+        viewDir: { value: new TH.Vector3() }
+      },
+      vertexShader: `varying vec2 vUv; varying vec3 vPos; uniform float time; void main(){ vUv = uv; vPos = position; float angle = time*0.6; float r = length(position.xz); float rot = 1.2 / (r + 0.05); mat2 R = mat2(cos(angle*rot), -sin(angle*rot), sin(angle*rot), cos(angle*rot)); vec3 p = position; p.xz = R * p.xz; gl_Position = projectionMatrix * modelViewMatrix * vec4(p,1.0); }`,
+      fragmentShader: `uniform float time; uniform float brightness; varying vec2 vUv; varying vec3 vPos; void main(){ // radial coordinate across ring (0 inner -> 1 outer)
+        float r = abs(vUv.x - 0.5) * 2.0;
+        vec3 innerC = vec3(1.0,0.7,0.2); vec3 outerC = vec3(0.7,0.25,0.06);
+        float intensity = smoothstep(1.0, 0.0, pow(r, 1.25));
+        float var = sin(time*2.0 + r*12.0) * 0.12 + 0.9;
+        vec3 col = mix(innerC, outerC, r) * intensity * var * brightness;
+
+        // occlusion: hide backface of disk by checking fragment normal's approximate z (vPos.y near 0, so use vPos.z) -> simpler: use derivative of vUv
+        // approximate front/back using vPos.y (should be near 0): we'll fade backside strongly
+        float facing = step(0.0, -vPos.y); // when y < 0 (backface under equatorial), facing=1 (we'll dim)
+        float backFade = mix(1.0, 0.08, facing); // dim back side
+
+        // stronger fade near inner edge to avoid leaking into horizon
+        float innerFade = smoothstep(0.02, 0.0, r);
+        float alpha = smoothstep(1.0, 0.2, r) * 0.98 * backFade * (1.0 - innerFade*0.95);
+
+        gl_FragColor = vec4(col, alpha);
+      }`
+    });
+    const disk = new TH.Mesh(diskGeo, diskMat);
+    scene.add(disk);
+
+    // Rim
+    const rim = new TH.Mesh(new TH.RingGeometry(diskOuter*1.03, diskOuter*1.12, 256), new TH.MeshBasicMaterial({color:0xffaa66, transparent:true, opacity:0.05, side:TH.DoubleSide}));
+    rim.rotateX(Math.PI/2); scene.add(rim);
+
+    // Photon trails: CPU-driven but with lifetime clamp to avoid repeated orbits.
+    const MAX_TRAILS = 30500;
+    const trailPositions = new Float32Array(MAX_TRAILS * 3);
+    const trailGeo = new TH.BufferGeometry(); trailGeo.setAttribute('position', new TH.BufferAttribute(trailPositions, 3));
+    const trailMat = new TH.PointsMaterial({ size: 0.07, color:0xffcc88, transparent:true, opacity:0.9 });
+    const trails = new TH.Points(trailGeo, trailMat); scene.add(trails);
+
+    const particles = [];
+    const MAX_LIFE = 220; // frames maximum for a particle before respawn (prevents long repeated orbits)
+
+    function spawn(i){
+      const angle = (i / MAX_TRAILS) * Math.PI*2 + (Math.random()-0.5)*0.6;
+      const dist = 180 + Math.random()*100;
+      const pos = new TH.Vector3(Math.cos(angle)*dist, (Math.random()-0.5)*14, Math.sin(angle)*dist);
+      const vel = new TH.Vector3().subVectors(new TH.Vector3(0,0,0), pos).normalize().multiplyScalar(0.9 + Math.random()*0.6);
+      particles[i] = { pos, vel, life: Math.floor(Math.random()*MAX_LIFE*0.6) };
+      trailPositions[i*3+0] = pos.x; trailPositions[i*3+1] = pos.y; trailPositions[i*3+2] = pos.z;
+    }
+    for(let i=0;i<MAX_TRAILS;i++) spawn(i);
+
+    // Render target for postprocessing
+    const rt = new TH.WebGLRenderTarget(Math.min(innerWidth, 2048), Math.min(innerHeight, 2048), { minFilter:TH.LinearFilter, magFilter:TH.LinearFilter });
+
+    const postUniforms = {
+      tScene: { value: rt.texture },
+      resolution: { value: new TH.Vector2(Math.max(1, innerWidth), Math.max(1, innerHeight)) },
+      bhPos: { value: new TH.Vector2(0.5, 0.5) },
+      strength: { value: 0.6 },
+      horizonRadius: { value: 0.06 },
+      photonOrbitMask: { value: 0.12 } // screen-space radius (uv) around photon sphere where intensity falloff is stronger
+    };
+
+    const postMat = new TH.ShaderMaterial({
+      uniforms: postUniforms,
+      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position,1.0); }',
+      fragmentShader: `precision mediump float; varying vec2 vUv; uniform sampler2D tScene; uniform vec2 resolution; uniform vec2 bhPos; uniform float strength; uniform float horizonRadius; uniform float photonOrbitMask;
+        void main(){ vec2 uv = vUv; float aspect = resolution.x / resolution.y; vec2 aspectScale = vec2(aspect, 1.0); vec2 p = (uv - bhPos) * aspectScale; float r = length(p);
+
+        // compute screen-space horizon radius (approx) and mask interior strictly
+        float horizonScreenR = horizonRadius * aspect;
+        if(r < horizonScreenR * 0.98){ gl_FragColor = vec4(0.0); return; }
+
+        // stronger falloff around photon-sphere region to suppress overly bright secondary rings
+        float orbitFall = smoothstep(photonOrbitMask*0.5, photonOrbitMask, r);
+        float s = strength * (1.0 - clamp(orbitFall*0.9, 0.0, 0.95));
+
+        vec2 dir = normalize(p + vec2(1e-6));
+        vec2 dispScreen = -dir * s * (1.0 / (r * 6.0 + 0.001));
+        vec2 disp = dispScreen / aspectScale;
+
+        // chromatic
+        vec2 uR = clamp(uv + disp * 0.9, vec2(0.0), vec2(1.0));
+        vec2 uG = clamp(uv + disp * 0.98, vec2(0.0), vec2(1.0));
+        vec2 uB = clamp(uv + disp * 1.05, vec2(0.0), vec2(1.0));
+        vec4 cR = texture2D(tScene, uR);
+        vec4 cG = texture2D(tScene, uG);
+        vec4 cB = texture2D(tScene, uB);
+        gl_FragColor = vec4(cR.r, cG.g, cB.b, 1.0);
+      }`
+    });
+
+    const quad = new TH.Mesh(new TH.PlaneGeometry(2,2), postMat);
+    const postScene = new TH.Scene(); postScene.add(quad); const postCam = new TH.Camera();
+
+    // UI
+    const massEl = document.getElementById('mass'); const massVal = document.getElementById('massVal'); massEl.addEventListener('input', ()=> massVal.textContent = massEl.value);
+    const lensEl = document.getElementById('lens'); const lensVal = document.getElementById('lensVal'); lensEl.addEventListener('input', ()=>{ lensVal.textContent = lensEl.value; postUniforms.strength.value = parseFloat(lensEl.value); });
+    const diskEl = document.getElementById('disk'); const diskVal = document.getElementById('diskVal'); diskEl.addEventListener('input', ()=>{ diskVal.textContent = diskEl.value; diskMat.uniforms.brightness.value = parseFloat(diskEl.value); });
+    document.getElementById('toggleTrails').addEventListener('click', ()=>{ trails.visible = !trails.visible; });
+    let diskWarp = false; document.getElementById('toggleDiskWarp').addEventListener('click', ()=>{ diskWarp = !diskWarp; });
+
+    // compute BH uv pos & horizon radius each frame
+    const tmp = new TH.Vector3(); const tmp2 = new TH.Vector3();
+    function updateBHInfo(){ tmp.copy(bh.position); tmp.project(camera); postUniforms.bhPos.value.set(tmp.x*0.5+0.5, tmp.y*0.5+0.5);
+      // approximate horizon radius in uv by projecting a point offset by BH_radius on camera-right
+      camera.getWorldDirection(tmp2); const camRight = new TH.Vector3().crossVectors(camera.up, tmp2).normalize(); const offset = bh.position.clone().add(camRight.multiplyScalar(BH_radius)); offset.project(camera);
+      const offsetUv = new TH.Vector2(offset.x*0.5+0.5, offset.y*0.5+0.5); postUniforms.horizonRadius.value = offsetUv.distanceTo(postUniforms.bhPos.value);
+    }
+
+    // resize handler
+    function onResize(){ const w = Math.max(1, innerWidth), h = Math.max(1, innerHeight); renderer.setSize(w,h,false); camera.aspect = w/h; camera.updateProjectionMatrix(); const rtW = Math.min(w,2048), rtH = Math.min(h,2048); rt.setSize(rtW, rtH); postUniforms.resolution.value.set(rtW, rtH); }
+    window.addEventListener('resize', onResize, {passive:true}); onResize();
+
+    // animation
+    let last = performance.now(); let frameCount = 0;
+    function animate(){ requestAnimationFrame(animate); const now = performance.now(); const dt = Math.min(0.05, (now - last)/1000); last = now; frameCount++;
+
+      // animate disk
+      diskMat.uniforms.time.value += dt;
+
+      // particles: update with inverse-square, clamp life to avoid repeated orbits and prevent light leaking
+      const mass = parseFloat(massEl.value);
+      const k = 120.0 * mass;
+      for(let i=0;i<MAX_TRAILS;i++){
+        const p = particles[i]; p.life += 1;
+        const toBH = new TH.Vector3().subVectors(bh.position, p.pos);
+        const r2 = Math.max(0.0001, toBH.lengthSq());
+        const accel = toBH.normalize().multiplyScalar(k / r2);
+        p.vel.add(accel.multiplyScalar(dt)); p.pos.add(p.vel.clone().multiplyScalar(dt));
+
+        // if particle falls inside horizon, respawn immediately (absorb)
+        if(p.pos.length() < BH_radius * 1.02){ spawn(i); continue; }
+        // if particle lives too long (possible repeated orbit) respawn
+        if(p.life > MAX_LIFE){ spawn(i); continue; }
+
+        trailPositions[i*3+0] = p.pos.x; trailPositions[i*3+1] = p.pos.y; trailPositions[i*3+2] = p.pos.z;
+      }
+      trailGeo.attributes.position.needsUpdate = true;
+
+      controls.update();
+
+      // first pass: render scene into render target
+      renderer.setRenderTarget(rt); renderer.clear(); renderer.render(scene, camera); renderer.setRenderTarget(null);
+
+      // update BH info
+      updateBHInfo();
+
+      // optionally apply a simple disk-warp by slightly boosting strength near disk (cheap approx)
+      if(diskWarp){ postUniforms.strength.value = Math.min(2.0, parseFloat(lensEl.value) * 1.3); } else { postUniforms.strength.value = parseFloat(lensEl.value); }
+
+      // composite pass
+      renderer.render(postScene, postCam);
+    }
+    animate();
+
+    // helpers
+    function generateStarTexture(size=2048){ const c=document.createElement('canvas'); c.width=c.height=size; const ctx=c.getContext('2d'); ctx.fillStyle='#000'; ctx.fillRect(0,0,size,size); const count = Math.floor(size*4.5);
+      for(let i=0;i<count;i++){ const x=Math.random()*size, y=Math.random()*size, r=Math.random()*1.2+0.3; const g=ctx.createRadialGradient(x,y,0,x,y,r*2); const bright=200+Math.floor(Math.random()*55); g.addColorStop(0, `rgba(${bright},${bright},${bright},1)`); g.addColorStop(1,'rgba(0,0,0,0)'); ctx.fillStyle=g; ctx.fillRect(x-r-1,y-r-1,r*2+2,r*2+2); }
+      const tex = new TH.CanvasTexture(c); tex.needsUpdate=true; return tex; }
+
+  })(); });
+  </script>
+</body>
+</html>
+

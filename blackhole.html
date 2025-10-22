@@ -1,0 +1,476 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Interactive Black Hole (Three.js) — Local Imports Only</title>
+  <style>
+    html,body{height:100%;margin:0;background:#000;overflow:hidden;font-family:Inter,system-ui, Arial}
+    #ui{position:fixed;left:12px;top:12px;color:#ddd;z-index:20;backdrop-filter:blur(6px)}
+    .panel{background:rgba(0,0,0,0.45);padding:10px;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.7)}
+    label{display:block;font-size:13px;margin:6px 0}
+    input[type=range]{width:200px}
+    button{margin-top:6px;padding:6px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.02);color:#fff}
+    #credits{position:fixed;right:12px;bottom:12px;color:#888;font-size:12px}
+
+    /* Error overlay if imports fail */
+    #errorOverlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);color:#f66;display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px;box-sizing:border-box;display:none}
+    #errorOverlay .box{max-width:780px;background:rgba(20,10,10,0.6);padding:20px;border-radius:8px;border:1px solid rgba(255,100,100,0.08)}
+    #errorOverlay h2{margin:0 0 8px 0;color:#fff}
+    #errorOverlay p{color:#f88;margin:8px 0}
+    #errorOverlay code{background:#111;color:#ffb;border-radius:4px;padding:2px 6px}
+  </style>
+</head>
+<body>
+  <div id="ui" class="panel">
+    <div style="font-weight:600">Black Hole</div>
+    <label>Mass (scale): <span id="massVal">1.0</span></label>
+    <input id="mass" type="range" min="0.2" max="5" step="0.01" value="1.0">
+
+    <label>Lens Strength: <span id="lensVal">1.0</span></label>
+    <input id="lens" type="range" min="0" max="2" step="0.01" value="0.35">
+
+    <label>Disk Brightness: <span id="diskVal">1.0</span></label>
+    <input id="disk" type="range" min="0" max="3" step="0.01" value="1.0">
+
+    <button id="toggleTrails">Toggle Photon Trails</button>
+    <div style="font-size:12px;color:#9aa; margin-top:6px">Use mouse to orbit/pan/zoom.</div>
+  </div>
+  <div id="credits">Three.js • OrbitControls • shader lensing (approx.)</div>
+
+  <div id="errorOverlay"><div class="box"><h2>Module Load Error</h2>
+    <p>The page failed to load local <code>three</code> modules. This build requires local relative imports (no CDN) to work in sandboxed environments.</p>
+    <p>To fix, download the following files into the <code>same folder</code> as this HTML file:</p>
+    <ul style="color:#ffc">
+      <li><code>three.module.js</code> — from the Three.js build (e.g. <code>/build/three.module.js</code>).</li>
+      <li><code>examples/jsm/controls/OrbitControls.js</code> — from the Three.js examples (maintain the folder structure <code>examples/jsm/controls/OrbitControls.js</code>).</li>
+    </ul>
+    <p>Then reload this page. If you prefer a CDN-based page, tell me and I'll provide a CDN version.</p>
+  </div></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.134/examples/js/controls/OrbitControls.js"></script>
+  <script>
+    // Wait for Three.js to be fully loaded
+    window.addEventListener('load', function() {
+    (function(){
+      const showError = (msg)=>{
+        const overlay = document.getElementById('errorOverlay');
+        overlay.style.display = 'flex';
+        console.error('Blackhole page error:', msg);
+      };
+
+      // Use global THREE instead of importing
+      const THREElib = THREE;
+
+      // Using global THREE directly
+      
+      // Renderer + scene + camera
+      const renderer = new THREE.WebGLRenderer({ 
+        antialias: true,
+        alpha: true  // Allow transparent background
+      });
+      // cap DPR for performance & VRAM predictability
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setClearColor(0x000000, 1);
+      document.body.appendChild(renderer.domElement);
+      console.log('Renderer initialized:', {
+        size: { width: renderer.domElement.width, height: renderer.domElement.height },
+        pixelRatio: window.devicePixelRatio
+      });
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x000000); // Set black background
+
+      const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1e8);
+      camera.position.set(0, 10, 350);  // Lower elevation for less perspective distortion
+      camera.lookAt(0, 0, 0);
+      
+      // Add ambient light to ensure basic visibility
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+      scene.add(ambientLight);
+
+      const controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.07;
+
+      // starfield background (large sphere with inverted normals)
+      const starsGeo = new THREE.SphereGeometry(10000, 512, 512); // Increased resolution but kept reasonable for performance
+      const starsMat = new THREE.MeshBasicMaterial({
+        map: generateStarTexture(),
+        side: THREE.BackSide
+      });
+      const stars = new THREE.Mesh(starsGeo, starsMat);
+      scene.add(stars);
+
+      // black hole (visual): a perfectly black sphere (event horizon)
+      const BH_radius = 3.5; // visual radius in scene units (user-scale)
+      const bhGeo = new THREE.SphereGeometry(BH_radius, 1000, 1000); // Ultra-high resolution sphere for perfect smoothness
+      const bhMat = new THREE.MeshBasicMaterial({
+        color: 0x000000,
+        transparent: false,
+        side: THREE.FrontSide
+      });
+      const blackHole = new THREE.Mesh(bhGeo, bhMat);
+      scene.add(blackHole);
+
+      // accretion disk (torus) — emissive shader-like material
+      const diskInner = BH_radius*1.5;
+      const diskOuter = BH_radius*6.0;
+      const torusGeo = new THREE.RingGeometry(diskInner, diskOuter, 2000, 16); // 720 segments for ultra-smooth circular shape
+      // rotate to lie on XZ-plane (equatorial)
+      torusGeo.rotateX(Math.PI/2);
+
+      const diskMat = new THREE.ShaderMaterial({
+        transparent: true,
+        uniforms: {
+          time: { value: 0.0 },
+          brightness: { value: 1.0 }
+        },
+        vertexShader: `
+          varying vec2 vUv;
+          void main() {
+            vUv = uv;
+            // Rotate the vertices based on their distance from center
+            float angle = time * 0.5; // Base rotation speed
+            float radius = length(position.xz);
+            float rotSpeed = 2.0 / (radius + 0.1); // Closer to center rotates faster
+            mat2 rotation = mat2(
+              cos(angle * rotSpeed), -sin(angle * rotSpeed),
+              sin(angle * rotSpeed), cos(angle * rotSpeed)
+            );
+            vec3 pos = position;
+            pos.xz = rotation * pos.xz;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+          }
+        `,
+        fragmentShader: `
+          uniform float time;
+          uniform float brightness;
+          varying vec2 vUv;
+          
+          void main() {
+            float r = abs(vUv.x-0.5)*2.0;
+            
+            // More intense color gradient
+            vec3 innerColor = vec3(1.0, 0.6, 0.1); // Hot inner region
+            vec3 outerColor = vec3(0.8, 0.3, 0.05); // Darker outer region
+            
+            // Sharp falloff for more defined disk
+            float intensity = smoothstep(1.0, 0.0, pow(r, 1.5));
+            
+            // Add some variation based on time and position
+            float variation = sin(time*2.0 + r*15.0) * 0.15 + 0.85;
+            
+            // Mix colors based on radius
+            vec3 col = mix(innerColor, outerColor, r) * intensity * variation * brightness;
+            
+            // Much higher opacity
+            float alpha = smoothstep(1.0, 0.2, r);
+            alpha = alpha * 0.95; // Make it more opaque
+            
+            gl_FragColor = vec4(col, alpha);
+          }
+        `
+      });
+      const disk = new THREE.Mesh(torusGeo, diskMat);
+      scene.add(disk);
+
+      // Add a faint rim light ring using a second ring scaled slightly
+      const rim = new THREE.Mesh(new THREE.RingGeometry(diskOuter*1.01, diskOuter*1.08, 512), new THREE.MeshBasicMaterial({color:0xffaa66, transparent:true, opacity:0.08, side:THREE.DoubleSide}));
+      rim.rotateX(Math.PI/2); scene.add(rim);
+
+      // Simple 'photon trail' particle system approximating bent paths
+      const MAX_TRAILS = 12500; // Reduced number of trails for better performance and clarity
+      let trailsEnabled = true;
+      const trailPositions = new Float32Array(MAX_TRAILS*3);
+      const trailGeometry = new THREE.BufferGeometry();
+      trailGeometry.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3));
+      const trailMaterial = new THREE.PointsMaterial({ 
+        size: 0.07, 
+        color: 0xffcc88,
+        transparent: true,
+        opacity: 0.9
+      });
+      const trails = new THREE.Points(trailGeometry, trailMaterial);
+      scene.add(trails);
+
+      // A lightweight 'simulation' of particles bending near mass using inverse-square deflection
+      const particles = [];
+      const MAX_LIFE = 220; // Maximum frames before respawn
+
+      function spawnParticle(i){
+        const angle = (i / MAX_TRAILS) * Math.PI*2 + (Math.random()-0.5)*0.6;
+        const dist = 180 + Math.random()*100;
+        const pos = new THREE.Vector3(Math.cos(angle)*dist, (Math.random()-0.5)*14, Math.sin(angle)*dist);
+        const vel = new THREE.Vector3().subVectors(new THREE.Vector3(0,0,0), pos).normalize().multiplyScalar(0.9 + Math.random()*0.6);
+        particles[i] = { 
+          pos, 
+          vel, 
+          life: Math.floor(Math.random()*MAX_LIFE*0.6) // Initialize with random life
+        };
+        trailPositions[i*3+0] = pos.x; 
+        trailPositions[i*3+1] = pos.y; 
+        trailPositions[i*3+2] = pos.z;
+      }
+
+      for(let i=0;i<MAX_TRAILS;i++) spawnParticle(i);
+
+      // Render target for postprocessing with capped resolution
+      let rtWidth = Math.max(1, Math.min(window.innerWidth, 4096));
+      let rtHeight = Math.max(1, Math.min(window.innerHeight, 4096));
+      const renderTarget = new THREE.WebGLRenderTarget(rtWidth, rtHeight, { 
+        minFilter: THREE.LinearFilter,
+        magFilter: THREE.LinearFilter,
+        format: THREE.RGBAFormat 
+      });
+
+      const postUniforms = {
+        tScene: { value: renderTarget.texture },
+        resolution: { value: new THREE.Vector2(rtWidth, rtHeight) },
+        bhPos: { value: new THREE.Vector2(0.5, 0.5) },
+        strength: { value: 0.35 },
+        radius: { value: 0.18 },
+        horizonRadius: { value: 0.06 } // screen-space UV radius of horizon - updated each frame
+      };
+
+      const postMaterial = new THREE.ShaderMaterial({
+        uniforms: postUniforms,
+        vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position,1.0);} `,
+        fragmentShader: `
+          precision mediump float;
+          uniform sampler2D tScene;
+          uniform vec2 resolution;
+          uniform vec2 bhPos;
+          uniform float strength;
+          uniform float horizonRadius;
+          varying vec2 vUv;
+
+          void main() {
+            vec2 uv = vUv;
+
+            // compute aspect-correct coordinate space so radial distances are correct in pixels
+            float aspect = resolution.x / resolution.y;
+            vec2 aspectScale = vec2(aspect, 1.0);
+
+            // p = vector from BH center to this pixel in screen-corrected space
+            vec2 p = (uv - bhPos) * aspectScale;
+            float r = length(p);
+
+            // If inside computed horizon radius, force pure black (mask event horizon)
+            float horizonScreenR = horizonRadius * aspect;
+            if (r < horizonScreenR * 0.95) {
+              gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+              return;
+            }
+
+            // apply lens displacement in screen-corrected space, then convert back
+            float s = strength * smoothstep(0.0, 1.0, 1.0 / (r + 0.0001));
+            vec2 dir = normalize(p + vec2(1e-6));
+            vec2 dispScreen = -dir * s * (1.0 / (r * 6.0 + 0.001));
+            vec2 disp = dispScreen / aspectScale;
+
+            // chromatic separation applied consistently
+            vec2 uvR = clamp(uv + disp * 0.90, vec2(0.0), vec2(1.0));
+            vec2 uvG = clamp(uv + disp * 0.975, vec2(0.0), vec2(1.0));
+            vec2 uvB = clamp(uv + disp * 1.05, vec2(0.0), vec2(1.0));
+
+            vec4 cR = texture2D(tScene, uvR);
+            vec4 cG = texture2D(tScene, uvG);
+            vec4 cB = texture2D(tScene, uvB);
+            gl_FragColor = vec4(cR.r, cG.g, cB.b, 1.0);
+          }
+        `,
+        depthWrite: false
+      });
+
+      const quad = new THREE.Mesh(new THREE.PlaneGeometry(2,2), postMaterial);
+      const postScene = new THREE.Scene();
+      postScene.add(quad);
+      const postCam = new THREE.Camera();
+
+      // UI bindings
+      const massSlider = document.getElementById('mass');
+      const massVal = document.getElementById('massVal');
+      massSlider.addEventListener('input', ()=>{ massVal.textContent = massSlider.value; });
+
+      const lensSlider = document.getElementById('lens');
+      const lensVal = document.getElementById('lensVal');
+      lensSlider.addEventListener('input', ()=>{ lensVal.textContent = lensSlider.value; postUniforms.strength.value = parseFloat(lensSlider.value); });
+
+      const diskSlider = document.getElementById('disk');
+      const diskVal = document.getElementById('diskVal');
+      diskSlider.addEventListener('input', ()=>{ diskVal.textContent = diskSlider.value; diskMat.uniforms.brightness.value = parseFloat(diskSlider.value); });
+
+      document.getElementById('toggleTrails').addEventListener('click', ()=>{ trailsEnabled = !trailsEnabled; trails.visible = trailsEnabled; });
+
+      // helper to compute BH center and screen-space horizon radius
+      const tmpV = new THREE.Vector3();
+      const tmpV2 = new THREE.Vector3();
+      function updateBHScreenInfo(){
+        // project BH center
+        tmpV.copy(blackHole.position);
+        tmpV.project(camera);
+        // normalized device coords (-1..1) -> UV (0..1)
+        postUniforms.bhPos.value.set((tmpV.x * 0.5) + 0.5, (tmpV.y * 0.5) + 0.5);
+
+        // compute screen-space radius of BH by projecting a point offset by BH_radius along camera-right axis
+        // get right vector in world space:
+        const camRight = new THREE.Vector3();
+        camera.getWorldDirection(tmpV2); // forward
+        camRight.crossVectors(camera.up, tmpV2).normalize(); // right (approx)
+        // take a world point at BH center + BH_radius along camRight
+        const offsetPoint = tmpV2.copy(blackHole.position).add(camRight.multiplyScalar(BH_radius));
+        offsetPoint.project(camera);
+        const bhUv = postUniforms.bhPos.value;
+        const offsetUv = new THREE.Vector2((offsetPoint.x * 0.5) + 0.5, (offsetPoint.y * 0.5) + 0.5);
+        const distUv = offsetUv.distanceTo(bhUv);
+        // store horizon radius in UV units
+        postUniforms.horizonRadius.value = distUv;
+      }
+
+      // resize - register after postUniforms exists
+      function onResize(){
+        const w = Math.max(1, window.innerWidth);
+        const h = Math.max(1, window.innerHeight);
+        renderer.setSize(w, h, false);
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+
+        // cap render target resolution for safety
+        const rtW = Math.max(1, Math.min(w, 4096));
+        const rtH = Math.max(1, Math.min(h, 4096));
+        renderTarget.setSize(rtW, rtH);
+        postUniforms.resolution.value.set(rtW, rtH);
+        
+        console.log('Window resized:', {
+            width: w,
+            height: h,
+            aspect: camera.aspect
+        });
+      }
+      window.addEventListener('resize', onResize, {passive:true});
+
+      // animation loop
+      let last = performance.now();
+      const startTime = performance.now();  // For debug logging
+      function animate(){
+        requestAnimationFrame(animate);
+        const now = performance.now();
+        const dt = Math.min(0.05, (now-last)/1000);
+        last = now;
+
+        // Debug logging for first few frames
+        if (now - startTime < 1000) {  // Log for first second
+            console.log('Frame rendered:', {
+                'Camera position': camera.position,
+                'Scene children': scene.children.length,
+                'Renderer size': {
+                    width: renderer.domElement.width,
+                    height: renderer.domElement.height
+                }
+            });
+        }
+
+        // disk animation
+        diskMat.uniforms.time.value += dt;
+
+        // update particle trails (very cheap integrator, pseudo gravitational deflection)
+        if(trailsEnabled){
+          const mass = parseFloat(massSlider.value);
+          const k = 120.0 * mass; // tuneable gravitational strength
+          for(let i=0;i<MAX_TRAILS;i++){
+            const p = particles[i];
+            p.life += 1;
+
+            // compute vector to BH center
+            const toBH = new THREElib.Vector3().subVectors(blackHole.position, p.pos);
+            const r2 = Math.max(0.0001, toBH.lengthSq());
+            // inverse-square acceleration towards BH
+            const accel = toBH.normalize().multiplyScalar(k / r2);
+            p.vel.add(accel.multiplyScalar(dt));
+            p.pos.add(p.vel.clone().multiplyScalar(dt));
+
+            // Respawn conditions:
+            // 1. If particle falls inside horizon (immediate absorption)
+            if(p.pos.length() < BH_radius * 1.02) { 
+                spawnParticle(i);
+                continue;
+            }
+            // 2. If particle lives too long (prevents repeated orbits)
+            if(p.life > MAX_LIFE) {
+                spawnParticle(i);
+                continue;
+            }
+            // 3. If particle has escaped the system
+            if(p.pos.length() > 5000) {
+                spawnParticle(i);
+                continue;
+            }
+
+            trailPositions[i*3+0] = p.pos.x;
+            trailPositions[i*3+1] = p.pos.y;
+            trailPositions[i*3+2] = p.pos.z;
+          }
+          trailGeometry.attributes.position.needsUpdate = true;
+        }
+
+        controls.update();
+
+        // Clear both render targets
+        renderer.setRenderTarget(renderTarget);
+        renderer.clear();
+        renderer.setRenderTarget(null);
+        renderer.clear();
+
+        // First render scene into renderTarget
+        renderer.setRenderTarget(renderTarget);
+        renderer.render(scene, camera);
+        renderer.setRenderTarget(null);
+
+        // Debug check for visible objects
+        const visibleObjects = scene.children.filter(obj => obj.visible);
+        console.log('Visible objects:', visibleObjects.length);
+
+        // update BH screen info for shader (mask + center)
+        updateBHScreenInfo();
+
+        // update any dynamic post uniforms
+        postMaterial.uniforms = postUniforms;
+
+        // final composite pass (postScene) draws full screen quad with distortion
+        renderer.render(postScene, postCam);
+      }
+
+      onResize();
+      animate();
+
+      // helper: procedurally generate a simple star texture
+      function generateStarTexture(){
+        const size = 4096; // Higher resolution star texture
+        const canvas = document.createElement('canvas'); canvas.width = canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        // black bg
+        ctx.fillStyle = '#000'; ctx.fillRect(0,0,size,size);
+        // add many random stars
+        for(let i=0;i<12000;i++){ // Double the number of stars
+          const x = Math.random()*size; const y = Math.random()*size;
+          const r = Math.random()*1.4;
+          const g = ctx.createRadialGradient(x,y,0,x,y,r*2);
+          const bright = 220 + Math.floor(Math.random()*35);
+          g.addColorStop(0, `rgba(${bright},${bright},${bright},1)`);
+          g.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = g; ctx.fillRect(x-r-1,y-r-1, r*2+2, r*2+2);
+        }
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.needsUpdate = true;
+        return tex;
+      }
+
+    })();
+    }); // Close load event listener
+  </script>
+</body>
+</html>
+
