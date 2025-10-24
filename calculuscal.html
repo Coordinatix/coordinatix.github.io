@@ -741,7 +741,7 @@ header .chip {
   <div class="brand">
     <div class="logo" aria-hidden="true"></div>
     <div>
-      <h1>Calculus Lab</h1>
+      <h1>Calculex</h1>
       <p class="tagline">Differentiate, integrate, evaluate limits, and visualize functions.</p>
     </div>
   </div>
@@ -852,6 +852,10 @@ header .chip {
     { latex: '\\div', type: 'operator', display: '÷' },
     { latex: '(', type: 'bracket' },
     { latex: ')', type: 'bracket' },
+    { latex: '{', type: 'bracket' },
+    { latex: '}', type: 'bracket' },
+    { latex: '[', type: 'bracket' },
+    { latex: ']', type: 'bracket' },
     { latex: '^', type: 'operator', display: 'x^n' },
     { latex: '_', type: 'operator', display: 'x_n' },
     { latex: '\\sqrt', type: 'function', display: '√' },
@@ -904,7 +908,6 @@ header .chip {
 
   // Add a mobile hint near the input (optional, for UX)
   const mobileHint = document.createElement('small');
-  mobileHint.textContent = 'Tap to type or use ⌨ for symbols';
   mobileHint.style.cssText = 'display: block; font-size: 11px; color: var(--muted); margin-top: 4px;';
   mobileHint.style.display = isMobile ? 'block' : 'none';
   document.querySelector('.math-input-wrapper').appendChild(mobileHint);
