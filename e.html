@@ -1,400 +1,312 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Interactive 2D Graphing Calculator</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        }
-
-        body {
-            display: flex;
-            height: 100vh;
-            background: #f5f5f5;
-            overflow: hidden;
-        }
-
-        #left-panel {
-            width: 30%;
-            min-width: 250px;
-            background: #fff;
-            border-right: 1px solid #ddd;
-            padding: 20px;
-            overflow-y: auto;
-        }
-
-        #equation-list {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .equation-row {
-            display: flex;
-            align-items: center;
-            padding: 10px;
-            border: 1px solid #eee;
-            border-radius: 5px;
-            background: #fafafa;
-        }
-
-        .equation-row input[type="text"] {
-            flex: 1;
-            border: none;
-            outline: none;
-            font-size: 16px;
-            padding: 5px;
-            background: transparent;
-        }
-
-        .equation-row button {
-            background: #ff4d4f;
-            color: white;
-            border: none;
-            border-radius: 3px;
-            padding: 5px 10px;
-            cursor: pointer;
-            margin-left: 10px;
-        }
-
-        .equation-row button:hover {
-            background: #d9363e;
-        }
-
-        #add-equation {
-            background: #28a745;
-            color: white;
-            border: none;
-            border-radius: 3px;
-            padding: 10px;
-            cursor: pointer;
-            width: 100%;
-            margin-top: 10px;
-        }
-
-        #add-equation:hover {
-            background: #218838;
-        }
-
-        .slider-container {
-            margin-top: 10px;
-            padding: 10px;
-            background: #f0f0f0;
-            border-radius: 5px;
-        }
-
-        .slider-container label {
-            font-size: 14px;
-            margin-right: 10px;
-        }
-
-        .slider-container input[type="range"] {
-            width: 100%;
-        }
-
-        #right-panel {
-            flex: 1;
-            background: #fff;
-        }
-
-        @media (max-width: 768px) {
-            body {
-                flex-direction: column;
-            }
-            #left-panel {
-                width: 100%;
-                height: 40%;
-                overflow-y: auto;
-            }
-            #right-panel {
-                width: 100%;
-                height: 60%;
-            }
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Advanced 2D Graphing Calculator</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.css">
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+      background: #f4f4f4;
+    }
+    #app-container {
+      display: flex;
+      width: 100%;
+      height: 100%;
+    }
+    #sidebar {
+      width: 320px;
+      background: #fff;
+      border-right: 1px solid #ddd;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+    }
+    #graph-area {
+      flex: 1;
+      background: #fafafa;
+      position: relative;
+    }
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .equation-input-group {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+      background: #f8f8f8;
+      border-radius: 8px;
+      padding: 5px;
+      border: 1px solid #ddd;
+    }
+    .color-picker {
+      width: 24px;
+      height: 24px;
+      margin-right: 8px;
+      border: none;
+    }
+    .remove-btn {
+      margin-left: 5px;
+      cursor: pointer;
+      color: red;
+      border: none;
+      background: none;
+      font-size: 18px;
+      font-weight: bold;
+    }
+    .add-equation-btn, #keyboard-toggle-btn, #reset-btn {
+      margin-top: 10px;
+      padding: 10px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      color: #fff;
+      background: #3498db;
+      transition: background 0.2s;
+    }
+    .add-equation-btn:hover, #keyboard-toggle-btn:hover, #reset-btn:hover {
+      background: #2980b9;
+    }
+    #keyboard-toggle-btn { background: #2ecc71; }
+    #keyboard-toggle-btn:hover { background: #27ae60; }
+    #reset-btn { background: #9b59b6; }
+    #reset-btn:hover { background: #8e44ad; }
+    h2 {
+      text-align: center;
+      color: #333;
+      margin-bottom: 15px;
+    }
+  </style>
 </head>
 <body>
-    <div id="left-panel">
-        <div id="equation-list"></div>
-        <button id="add-equation">+ Add Equation</button>
+  <div id="app-container">
+    <div id="sidebar">
+      <h2>2D Graphing Calculator</h2>
+      <div id="equation-list"></div>
+      <button id="add-equation-btn" class="add-equation-btn">+ Add Equation</button>
+      <button id="keyboard-toggle-btn">Toggle Keyboard</button>
+      <button id="reset-btn">Reset View</button>
     </div>
-    <div id="right-panel"></div>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.4.1/math.js"></script>
+    <div id="graph-area">
+      <canvas id="graph-canvas"></canvas>
+    </div>
+  </div>
 
-    <script>
-        let equations = [];
-        let sliders = {};
-        let unitScale = 30;
-        let offsetX = 0, offsetY = 0;
-        let isDragging = false;
-        let lastMouseX, lastMouseY;
+  <!-- MathQuill + Math.js + jQuery -->
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.11.0/math.min.js"></script>
 
-        // p5.js setup
-        function setup() {
-    const panel = document.getElementById('right-panel');
-    let canvas = createCanvas(panel.clientWidth, panel.clientHeight);
-    canvas.parent('right-panel');
-    pixelDensity(2);
-}
+  <script>
+    // ======= GRAPH ENGINE =======
+    class Graph2D {
+      constructor(canvas) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.scale = 50;
+        this.origin = {x: canvas.width / 2, y: canvas.height / 2};
+        this.series = [];
+        window.addEventListener('resize', () => this.resize());
+        this.resize();
+        this.attachEvents();
+        requestAnimationFrame(() => this.draw());
+      }
 
+      resize() {
+        const r = this.canvas.getBoundingClientRect();
+        this.canvas.width = r.width * window.devicePixelRatio;
+        this.canvas.height = r.height * window.devicePixelRatio;
+        this.ctx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
+        this.origin.x = r.width / 2;
+        this.origin.y = r.height / 2;
+        this.draw();
+      }
 
-        function draw() {
-            background(255);
-            translate(width / 2 + offsetX, height / 2 + offsetY);
-            scale(1, -1); // Flip y-axis for standard graph orientation
-            drawGrid();
-            drawAxes();
-            drawEquations();
-        }
+      worldToScreen(x, y) {
+        return { sx: this.origin.x + x * this.scale, sy: this.origin.y - y * this.scale };
+      }
 
-        function drawGrid() {
-            stroke(200);
-            strokeWeight(1);
-            let step = 1; // Grid step in graph units
-            let xMin = -width / (2 * unitScale) - offsetX / unitScale;
-            let xMax = width / (2 * unitScale) - offsetX / unitScale;
-            let yMin = -height / (2 * unitScale) - offsetY / unitScale;
-            let yMax = height / (2 * unitScale) - offsetY / unitScale;
+      screenToWorld(sx, sy) {
+        return { x: (sx - this.origin.x) / this.scale, y: (this.origin.y - sy) / this.scale };
+      }
 
-            for (let x = Math.floor(xMin / step) * step; x <= xMax; x += step) {
-                line(x * unitScale, yMin * unitScale, x * unitScale, yMax * unitScale);
-            }
-            for (let y = Math.floor(yMin / step) * step; y <= yMax; y += step) {
-                line(xMin * unitScale, y * unitScale, xMax * unitScale, y * unitScale);
-            }
-        }
+      addFunction(fn, color = '#2a62ff') {
+        this.series.push({ fn, color });
+        this.draw();
+      }
 
-        function drawAxes() {
-            stroke(0);
-            strokeWeight(2);
-            line(-width / 2 - offsetX, 0, width / 2 - offsetX, 0); // x-axis
-            line(0, -height / 2 - offsetY, 0, height / 2 - offsetY); // y-axis
-        }
+      clear() { this.series = []; this.draw(); }
 
-        function drawEquations() {
-            let colors = ['#ff4d4f', '#28a745', '#007bff', '#ffca28'];
-            equations.forEach((eq, index) => {
-                if (!eq.active) return;
-                 console.log('Drawing equation:', eq.func);
-                stroke(colors[index % colors.length]);
-                strokeWeight(2);
-                noFill();
-                beginShape();
-                let xMin = -width / (2 * unitScale) - offsetX / unitScale;
-                let xMax = width / (2 * unitScale) - offsetX / unitScale;
-                for (let x = xMin; x <= xMax; x += 0.01) {
-                    let y = evaluateEquation(eq.func, x);
-                    if (isFinite(y)) {
-                        vertex(x * unitScale, y * unitScale);
-                    } else {
-                        endShape();
-                        beginShape();
-                    }
-                }
-                endShape();
-            });
-        }
-
-       function evaluateEquation(func, x) {
-    try {
-        const scope = { x, ...sliders };
-        return math.evaluate(func, scope);
-    } catch (e) {
-        console.error('Error evaluating equation:', e);
-        return NaN;
-    }
-}
-
-
-
-        // Interaction: Zoom and Pan
-        function mouseWheel(event) {
-            let zoomFactor = event.delta > 0 ? 0.9 : 1.1;
-            unitScale *= zoomFactor;
-            unitScale = constrain(unitScale, 10, 200);
-            return false;
-        }
-
-        function mousePressed() {
-            if (mouseX > 0 && mouseX < width && mouseY > 0 && mouseY < height) {
-                isDragging = true;
-                lastMouseX = mouseX;
-                lastMouseY = mouseY;
-            }
-        }
-
-        function mouseReleased() {
-            isDragging = false;
-        }
-
-        function mouseDragged() {
-            if (isDragging) {
-                offsetX += (mouseX - lastMouseX);
-                offsetY += (mouseY - lastMouseY);
-                lastMouseX = mouseX;
-                lastMouseY = mouseY;
-            }
-        }
-
-        // Touch support
-        function touchMoved() {
-            if (touches.length === 1) {
-                offsetX += (touches[0].x - lastMouseX);
-                offsetY += (touches[0].y - lastMouseY);
-                lastMouseX = touches[0].x;
-                lastMouseY = touches[0].y;
-            } else if (touches.length === 2) {
-                let d1 = dist(touches[0].x, touches[0].y, touches[1].x, touches[1].y);
-                let d2 = dist(pmouseX, pmouseY, touches[1].x, touches[1].y);
-                let zoomFactor = d1 > d2 ? 0.99 : 1.01;
-                unitScale *= zoomFactor;
-                unitScale = constrain(unitScale, 10, 200);
-            }
-            return false;
-        }
-
-        // Equation and Slider Management
-        function addEquationRow(equation = '') {
-            let index = equations.length;
-            equations.push({ func: equation, active: true });
-            let row = document.createElement('div');
-            row.className = 'equation-row';
-            row.innerHTML = `
-                <input type="text" placeholder="Enter equation (e.g., sin(x) + a)" value="${equation}">
-                <button onclick="removeEquation(${index})">X</button>
-            `;
-            document.getElementById('equation-list').appendChild(row);
-           let debounceTimeout;
-row.querySelector('input').addEventListener('input', (e) => {
-    equations[index].func = e.target.value;
-    clearTimeout(debounceTimeout);
-    debounceTimeout = setTimeout(() => {
-        interpretEquation(e.target.value, index);
-    }, 500); // wait 500ms after last keystroke
-});
-;
-        }
-
-        function removeEquation(index) {
-            equations[index].active = false;
-            document.getElementById('equation-list').children[index].remove();
-            equations[index] = { func: '', active: false };
-        }
-        let sliderElements = {}; // Map of param → { slider, label }
-
-
-        function addSlider(param, value = 0, min = -10, max = 10) {
-    sliders[param] = value;
-
-    const sliderDiv = document.createElement('div');
-    sliderDiv.className = 'slider-container';
-    sliderDiv.id = `slider-${param}`;
-    sliderDiv.innerHTML = `
-        <label>${param}: <span>${value.toFixed(2)}</span></label>
-        <input type="range" min="${min}" max="${max}" step="0.1" value="${value}">
-        <button style="float: right; background:#dc3545; color:white; border:none; padding:4px 8px; border-radius:3px; margin-left:10px;" onclick="removeSlider('${param}')">✕</button>
-    `;
-
-    const slider = sliderDiv.querySelector('input');
-    const label = sliderDiv.querySelector('span');
-
-    slider.addEventListener('input', () => {
-        sliders[param] = parseFloat(slider.value);
-        label.textContent = sliders[param].toFixed(2);
-    });
-
-    sliderElements[param] = { slider, label };
-
-    document.getElementById('equation-list').appendChild(sliderDiv);
-}
-       async function interpretEquation(equation, index) {
-    try {
-        const node = math.parse(equation);
-        const symbols = new Set();
-
-        node.traverse((n, path, parent) => {
-            if (n.isSymbolNode) {
-                // Only add symbol if it's not 'x' and not used as a function name
-                const isPartOfFunction = parent?.isFunctionNode && parent.fn === n;
-                if (!isPartOfFunction && n.name !== 'x') {
-                    symbols.add(n.name);
-                }
-            }
+      attachEvents() {
+        let drag = false, last = {};
+        this.canvas.addEventListener('wheel', (e) => {
+          e.preventDefault();
+          const factor = e.deltaY > 0 ? 0.9 : 1.1;
+          this.scale *= factor;
+          this.draw();
         });
 
-        // Remove previously added sliders for this equation (optional)
-        equations[index].func = equation;
-
-        symbols.forEach(param => {
-            if (!(param in sliders)) {
-                addSlider(param);
-            }
+        this.canvas.addEventListener('mousedown', (e) => {
+          drag = true;
+          last = { x: e.clientX, y: e.clientY };
         });
 
-    } catch (e) {
-        // Don’t create sliders on invalid math
-        console.warn('Skipping slider creation due to parse error.');
-    }
-}
+        window.addEventListener('mouseup', () => drag = false);
 
-
-        async function interpretEquation(equation, index) {
-    try {
-        // Parse the expression using math.js
-        const node = math.parse(equation);
-        const compiled = node.compile();
-
-        // Extract variables (except 'x')
-        const allVars = node.filter(n => n.isSymbolNode).map(n => n.name);
-        const params = [...new Set(allVars.filter(v => v !== 'x'))];
-
-        equations[index].func = equation;
-
-        params.forEach(param => {
-            if (!(param in sliders)) {
-                addSlider(param);
-            }
+        window.addEventListener('mousemove', (e) => {
+          if (!drag) return;
+          const dx = e.clientX - last.x, dy = e.clientY - last.y;
+          this.origin.x += dx;
+          this.origin.y += dy;
+          last = { x: e.clientX, y: e.clientY };
+          this.draw();
         });
-    } catch (e) {
-        console.error('Math.js error:', e);
-    }
-}
+      }
 
+      resetView() {
+        this.scale = 50;
+        this.origin = { x: this.canvas.width / 2, y: this.canvas.height / 2 };
+        this.draw();
+      }
 
-        function extractParams(equation) {
-            // Simple regex to find variables (excluding 'x')
-            let vars = equation.match(/[a-zA-Z]+/g) || [];
-            return vars.filter(v => v !== 'x' && v !== 'sin' && v !== 'cos' && v !== 'tan' && v !== 'log');
+      drawGrid() {
+        const ctx = this.ctx;
+        const w = this.canvas.width / window.devicePixelRatio;
+        const h = this.canvas.height / window.devicePixelRatio;
+        ctx.clearRect(0, 0, w, h);
+        ctx.strokeStyle = '#ddd';
+        ctx.lineWidth = 1;
+        const step = this.scale;
+        const x0 = this.origin.x % step;
+        const y0 = this.origin.y % step;
+
+        for (let x = x0; x < w; x += step) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, h);
+          ctx.stroke();
         }
 
-        // Initialize
-        document.getElementById('add-equation').addEventListener('click', () => addEquationRow());
-        addEquationRow('sin(x)'); // Default equation
-        window.addEventListener('resize', () => {
-    const panel = document.getElementById('right-panel');
-    resizeCanvas(panel.clientWidth, panel.clientHeight);
-});
+        for (let y = y0; y < h; y += step) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(w, y);
+          ctx.stroke();
+        }
 
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(0, this.origin.y);
+        ctx.lineTo(w, this.origin.y);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(this.origin.x, 0);
+        ctx.lineTo(this.origin.x, h);
+        ctx.stroke();
+      }
 
-        // Animation loop for smooth parameter updates
-       function animateSliders() {
-    if ('a' in sliders && sliderElements['a']) {
-        sliders['a'] = 2 * Math.sin(frameCount * 0.02);
-        
-        const { slider, label } = sliderElements['a'];
-        slider.value = sliders['a'];
-        label.textContent = sliders['a'].toFixed(2);
+      drawFunctions() {
+        const ctx = this.ctx;
+        const w = this.canvas.width / window.devicePixelRatio;
+        for (const s of this.series) {
+          ctx.beginPath();
+          ctx.strokeStyle = s.color;
+          ctx.lineWidth = 2;
+          let first = true;
+          for (let sx = 0; sx < w; sx += 1) {
+            const x = this.screenToWorld(sx, 0).x;
+            let y;
+            try { y = s.fn(x); }
+            catch { continue; }
+            const { sy } = this.worldToScreen(0, y);
+            if (Number.isFinite(sy)) {
+              if (first) { ctx.moveTo(sx, sy); first = false; }
+              else { ctx.lineTo(sx, sy); }
+            }
+          }
+          ctx.stroke();
+        }
+      }
+
+      draw() {
+        this.drawGrid();
+        this.drawFunctions();
+      }
     }
-    requestAnimationFrame(animateSliders);
-}
 
-        animateSliders();
-    </script>
+    // ======= UI LOGIC =======
+    const MQ = MathQuill.getInterface(2);
+    const canvas = document.getElementById('graph-canvas');
+    const graph = new Graph2D(canvas);
+
+    function addEquationRow(expr = "") {
+      const container = document.createElement('div');
+      container.className = 'equation-input-group';
+      container.innerHTML = `
+        <input type="color" class="color-picker" value="#2a62ff">
+        <span class="mathquill-editable"></span>
+        <button class="remove-btn">&times;</button>
+      `;
+      document.getElementById('equation-list').appendChild(container);
+
+      const span = container.querySelector('.mathquill-editable');
+      const mq = MQ.MathField(span, { spaceBehavesLikeTab: true });
+      mq.latex(expr);
+      const colorInput = container.querySelector('.color-picker');
+      const removeBtn = container.querySelector('.remove-btn');
+
+      function updateGraph() {
+        graph.clear();
+        document.querySelectorAll('.equation-input-group').forEach(group => {
+          const m = MQ.MathField(group.querySelector('.mathquill-editable'));
+          const exprLatex = m.latex();
+          const color = group.querySelector('.color-picker').value;
+          const parsedExpr = latexToJS(exprLatex);
+          try {
+            const fn = (x) => math.evaluate(parsedExpr, { x });
+            graph.addFunction(fn, color);
+          } catch (e) {
+            console.warn('Error parsing:', e);
+          }
+        });
+      }
+
+      colorInput.addEventListener('input', updateGraph);
+      mq.el().addEventListener('input', () => setTimeout(updateGraph, 300));
+      removeBtn.onclick = () => { container.remove(); updateGraph(); };
+      updateGraph();
+    }
+
+    function latexToJS(latex) {
+      return latex
+        .replace(/\\left|\\right/g, '')
+        .replace(/\\cdot/g, '*')
+        .replace(/\\times/g, '*')
+        .replace(/\\div/g, '/')
+        .replace(/\\frac\{([^}]*)\}\{([^}]*)\}/g, '($1)/($2)')
+        .replace(/\\sqrt\{([^}]*)\}/g, 'sqrt($1)')
+        .replace(/\\sin/g, 'sin')
+        .replace(/\\cos/g, 'cos')
+        .replace(/\\tan/g, 'tan')
+        .replace(/\\pi/g, 'pi')
+        .replace(/\\ln/g, 'log')
+        .replace(/\\exp/g, 'exp')
+        .replace(/([0-9a-zA-Z)])([a-zA-Z(])/g, '$1*$2');
+    }
+
+    document.getElementById('add-equation-btn').onclick = () => addEquationRow();
+    document.getElementById('reset-btn').onclick = () => graph.resetView();
+
+    // Initialize with one row
+    addEquationRow('x');
+  </script>
 </body>
 </html>

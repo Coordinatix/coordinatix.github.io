@@ -1,0 +1,1305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <title>Calculus Lab — Integrate, Differentiate, Limits</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.css" />
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjs@12.4.1/lib/browser/math.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+
+  <style>
+    :root {
+      --bg0: #0B1020;
+      --bg1: #0E1530;
+      --bg2: #162042;
+      --glass: rgba(255, 255, 255, 0.08);
+      --glass2: rgba(255, 255, 255, 0.12);
+      --border: rgba(255, 255, 255, 0.18);
+      --text: #e6e9f0;
+      --muted: #9ba3b0;
+      --accent: #7C5CFF;
+      --accent2: #00D4FF;
+      --danger: #ff5c7c;
+      --success: #33d69f;
+      --shadow: 0 30px 60px rgba(0,0,0,0.35);
+      --shadow-sm: 0 8px 24px rgba(0,0,0,0.25);
+    }
+    * {
+      box-sizing: border-box;
+    }
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+      color: var(--text);
+      background: radial-gradient(1200px 600px at 15% 0%, #0f1c44 0%, var(--bg1) 40%, var(--bg0) 100%),
+                  conic-gradient(from 220deg at 80% 30%, #0f1b36, #0b1020);
+      overflow-x: hidden;
+    }
+    .aurora {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      filter: blur(60px);
+      opacity: 0.35;
+      z-index: -1;
+    }
+    .blob {
+      position: absolute;
+      width: 40vw;
+      height: 40vw;
+      background: radial-gradient(circle at 30% 30%, rgba(124,92,255,0.25), transparent 60%);
+      border-radius: 50%;
+      transform: translate(-10%, -10%);
+      animation: float 18s infinite ease-in-out;
+    }
+    .blob2 {
+      position: absolute;
+      width: 45vw;
+      height: 45vw;
+      background: radial-gradient(circle at 70% 50%, rgba(0,212,255,0.25), transparent 70%);
+      border-radius: 50%;
+      right: -10%;
+      bottom: -15%;
+      animation: float 24s infinite ease-in-out reverse;
+    }
+    @keyframes float {
+      0%, 100% { transform: translate(0, 0); }
+      25% { transform: translate(2%, 2%); }
+      50% { transform: translate(-1%, 3%); }
+      75% { transform: translate(1%, -2%); }
+    }
+    header {
+      max-width: 1100px;
+      margin: 40px auto 20px;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      position: relative;
+    }
+    header > .chip {
+      width: max-content;
+      flex: 0 0 auto;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      position: relative;
+      flex: 1;
+    }
+    .logo {
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 14px;
+      box-shadow: 0 10px 28px rgba(124, 92, 255, 0.35), 
+                  inset 0 0 24px rgba(255,255,255,0.25);
+      position: relative;
+      transition: transform 0.3s ease;
+      flex-shrink: 0;
+    }
+    .logo:hover {
+      transform: translateY(-2px) scale(1.02);
+    }
+    .logo::after {
+      content: "";
+      position: absolute;
+      inset: -1px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: inherit;
+      opacity: 0.5;
+      filter: blur(8px);
+      z-index: -1;
+    }
+    .brand h1 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      background: linear-gradient(135deg, #fff 30%, #b4c5ff);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .tagline {
+      color: var(--muted);
+      margin: 6px 0 0;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .container {
+      max-width: 1100px;
+      margin: 12px auto 80px;
+      padding: 24px;
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 28px;
+    }
+    .card {
+      background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.04));
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      backdrop-filter: saturate(130%) blur(12px);
+      padding: 24px;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow), 0 0 0 1px var(--glass2);
+    }
+    .card h2 {
+      margin: 0 0 12px;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+    .grid2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    label {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    input[type="text"], input[type="number"], select {
+      width: 100%;
+      padding: 14px 16px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.06);
+      color: var(--text);
+      outline: none;
+      font-size: 14px;
+      transition: all 0.2s ease;
+    }
+    /* MathQuill Styling */
+    .mq-editable-field {
+      border: none !important;
+      box-shadow: none !important;
+      background: transparent !important;
+      color: var(--text) !important;
+      font-size: 16px !important;
+    }
+    .mq-cursor {
+      background-color: #faf9f9 !important; /* White cursor for high contrast */
+    }
+    .math-input-wrapper {
+      position: relative;
+      padding: 12px 16px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.06);
+      margin-bottom: 8px;
+      transition: all 0.2s ease;
+    }
+    .math-input-wrapper:hover {
+      border-color: var(--glass2);
+      background: rgba(255,255,255,0.08);
+    }
+    .math-input-wrapper:focus-within {
+      border-color: var(--accent);
+      background: rgba(255,255,255,0.08);
+      box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.15);
+    }
+    .mq-math-mode {
+      color: var(--text) !important;
+    }
+    .mq-math-mode .mq-sup {
+      position: relative;
+      top: -0.5em;
+      font-size: 0.85em;
+    }
+    .mq-math-mode .mq-sub {
+      position: relative;
+      bottom: -0.4em;
+      font-size: 0.85em;
+    }
+    .math-suggestions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+      padding: 0 4px;
+    }
+    .math-suggestion {
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 4px 8px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      color: var(--text);
+    }
+    .math-suggestion:hover {
+      background: var(--glass2);
+      border-color: var(--accent);
+    }
+    .math-keyboard-toggle {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      color: var(--text);
+    }
+    .math-keyboard-toggle:hover {
+      background: var(--glass2);
+      border-color: var(--accent);
+    }
+    .math-keyboard {
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      right: 0;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      z-index: 10;
+      box-shadow: var(--shadow);
+      display: none;
+    }
+    .math-keyboard.active {
+      display: grid;
+    }
+    .math-key {
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      color: var(--text);
+    }
+    .math-key:hover {
+      background: var(--glass2);
+      border-color: var(--accent);
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 16px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.06);
+      color: var(--text);
+      outline: none;
+      font-size: 14px;
+      transition: all 0.2s ease;
+      width: max-content;
+    }
+    select {
+      background-color: var(--bg2);
+      font-weight: 500;
+      position: relative;
+      z-index: 1;
+    }
+    input::placeholder {
+      color: rgba(173, 180, 194, 0.4);
+      transition: color 0.2s ease;
+    }
+    input:hover::placeholder {
+      color: rgba(173, 180, 194, 0.5);
+    }
+    input:focus::placeholder {
+      color: rgba(173, 180, 194, 0.6);
+    }
+    input:hover, select:hover {
+      border-color: var(--glass2);
+      background: rgba(255,255,255,0.08);
+    }
+    input:focus, select:focus {
+      border-color: var(--accent);
+      background: rgba(255,255,255,0.08);
+      box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.15);
+    }
+    select {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L6 6L11 1' stroke='%239ba3b0' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 16px center;
+      padding-right: 40px;
+      cursor: pointer;
+    }
+    select option {
+      background-color: #162042;
+      color: var(--text);
+      padding: 12px;
+      font-size: 14px;
+    }
+    select:-moz-focusring {
+      color: transparent;
+      text-shadow: 0 0 0 var(--text);
+    }
+    select::-ms-expand {
+      display: none;
+    }
+    select:focus option:checked {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #504e4e9e;
+    }
+    .row {
+      display: flex;
+      gap: 14px;
+    }
+    .chip {
+      background: linear-gradient(180deg, var(--glass), rgba(255,255,255,0.05));
+      padding: 8px 12px;
+      border-radius: 12px;
+      border: 1px dashed rgba(255,255,255,0.25);
+      font-size: 13px;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+      width: fit-content;
+    }
+    .chip:hover {
+      border-color: rgba(255,255,255,0.35);
+      background: linear-gradient(180deg, var(--glass2), rgba(255,255,255,0.06));
+    }
+    .chip small {
+      color: var(--muted);
+      font-weight: 500;
+    }
+    header .chip {
+      flex-shrink: 0;
+      margin-left: auto;
+      padding: 6px 10px;
+      font-size: 12px;
+      min-width: 0;
+      width: auto;
+    }
+    .actions {
+      display: flex;
+      align-items: center;
+      margin: 20px 0;
+      flex-direction: row;
+      justify-content: space-between;
+      width: 100%;
+      gap: clamp(8px, 2vw, 14px);
+      flex-wrap: wrap;
+    }
+    .actions .chip {
+      flex: 0 0 auto;
+      width: max-content;
+      min-width: min-content;
+    }
+    .btn {
+      flex: 1 1 0;
+      min-width: min(140px, 45%);
+      cursor: pointer;
+      border: none;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      padding: clamp(10px, 2.5vw, 14px) clamp(16px, 3vw, 24px);
+      transition: all 0.2s ease;
+      position: relative;
+      border-radius: clamp(10px, 2vw, 14px);
+      font-size: clamp(13px, 2vw, 14px);
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      overflow: hidden;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #10121a;
+      box-shadow: 0 10px 24px rgba(0,212,255,0.25);
+    }
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 28px rgba(0,212,255,0.35);
+    }
+    .btn-ghost {
+      background: var(--glass);
+      color: var(--text);
+    }
+    .btn-ghost:hover {
+      background: var(--glass2);
+    }
+    .btn:active {
+      transform: translateY(1px);
+      box-shadow: 0 8px 20px rgba(0,212,255,0.2);
+    }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .result {
+      margin-top: 16px;
+      padding: 16px 20px;
+      border-radius: 16px;
+      background: linear-gradient(180deg, var(--glass), rgba(255,255,255,0.04));
+      border: 1px solid var(--border);
+      min-height: 56px;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+    .result:hover {
+      transform: translateY(-1px);
+      border-color: var(--glass2);
+      box-shadow: var(--shadow-sm);
+    }
+    .result .title {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 10px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .result .title::before {
+      content: "•";
+      color: var(--accent);
+      font-size: 18px;
+      line-height: 1;
+    }
+    .result .out {
+      font-size: 16px;
+      font-weight: 600;
+      line-height: 1.5;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+    .result .out::-webkit-scrollbar {
+      height: 4px;
+    }
+    .result .out::-webkit-scrollbar-track {
+      background: rgba(255,255,255,0.05);
+      border-radius: 2px;
+    }
+    .result .out::-webkit-scrollbar-thumb {
+      background: var(--glass2);
+      border-radius: 2px;
+    }
+    .error {
+      color: var(--danger);
+      font-size: 13px;
+      margin-top: 10px;
+      padding: 8px 12px;
+      background: rgba(255, 92, 124, 0.1);
+      border-radius: 8px;
+      display: none;
+      align-items: center;
+      gap: 8px;
+    }
+    .error::before {
+      content: "!";
+      font-weight: bold;
+      color: currentColor;
+    }
+    .ok {
+      color: var(--success);
+      position: relative;
+    }
+    .ok::after {
+      content: "";
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      background: currentColor;
+      border-radius: 50%;
+      margin-left: 6px;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.5); opacity: 0.5; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .panel {
+      display: grid;
+      gap: 16px;
+    }
+    .plot {
+      width: 100%;
+      height: 360px;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, var(--glass), rgba(255,255,255,0.03));
+      transition: all 0.3s ease;
+      box-shadow: inset 0 0 0 1px var(--glass);
+    }
+    .plot:hover {
+      border-color: var(--glass2);
+      box-shadow: var(--shadow-sm), inset 0 0 0 1px var(--glass2);
+    }
+    .footer {
+      max-width: 1100px;
+      margin: 12px auto;
+      padding: 0 24px;
+      color: var(--muted);
+      font-size: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    @media (min-width: 981px) {
+      header .chip {
+        transform: scale(0.9);
+      }
+    }
+    @media (min-width: 1200px) {
+      header .chip {
+        transform: scale(0.85);
+      }
+    }
+    @media (max-width: 980px) {
+      .container {
+        grid-template-columns: 1fr;
+        padding: 16px;
+      }
+      header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+        margin: 24px auto 16px;
+        padding: 0 16px;
+      }
+      header .chip {
+        margin-left: 0;
+        align-self: flex-start;
+      }
+      .card {
+        padding: 20px;
+      }
+      .grid2 {
+        grid-template-columns: 1fr;
+      }
+      .plot {
+        height: 280px;
+      }
+    }
+    @media (max-width: 480px) {
+      .actions {
+        gap: 10px;
+      }
+      .actions .btn {
+        flex: 1 1 100%;
+        width: 100%;
+        min-width: 100%;
+      }
+      .actions .chip {
+        order: -1;
+        width: 100%;
+        justify-content: center;
+      }
+    }
+    @media (min-width: 481px) and (max-width: 768px) {
+      .actions .btn {
+        min-width: calc(50% - 7px);
+      }
+    }
+    @media (hover: hover) and (pointer: fine) {
+      html {
+        scroll-behavior: smooth;
+      }
+    }
+    @media (prefers-contrast: more) {
+      :root {
+        --border: rgba(255,255,255,0.25);
+        --glass: rgba(255,255,255,0.12);
+        --glass2: rgba(255,255,255,0.16);
+      }
+      .mq-cursor {
+    background-color: #ffffff !important; /* White cursor for high contrast */
+  }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      * {
+        animation: none !important;
+        transition: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="aurora">
+    <div class="blob"></div>
+    <div class="blob2"></div>
+  </div>
+
+  <header>
+    <div class="brand">
+      <div class="logo" aria-hidden="true"></div>
+      <div>
+        <h1>Calculus Lab</h1>
+        <p class="tagline">Differentiate, integrate, evaluate limits, and visualize functions.</p>
+      </div>
+    </div>
+    <div class="chip" role="status" aria-live="polite">
+      <small>Status</small>
+      <span class="ok">Ready</span>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="card panel">
+      <h2>Problem Setup</h2>
+      <div>
+        <label for="expr">Function f(x)</label>
+        <div class="math-input-wrapper">
+          <span id="math-input" aria-label="Math input field"></span>
+          <button class="math-keyboard-toggle" id="keyboardToggle" aria-label="Toggle math keyboard">🧮</button>
+          <input type="hidden" id="expr" />
+          <div class="math-keyboard" id="mathKeyboard"></div>
+        </div>
+        <div class="math-suggestions" id="mathSuggestions"></div>
+      </div>
+      <div class="grid2">
+        <div>
+          <label for="variable">Variable</label>
+          <input id="variable" type="text" value="x" aria-describedby="variable-help" pattern="[a-zA-Z]" />
+          
+        <div>
+          <label for="op">Operation</label>
+          <select id="op" aria-describedby="op-help">
+            <option value="evaluate">Evaluate f(x0)</option>
+            <option value="differentiateSymbolic">Derivative (symbolic)</option>
+            <option value="differentiateNumeric">Derivative at x0 (numeric)</option>
+            <option value="integrateDefinite">Definite integral ∫ f dx from a to b</option>
+            <option value="limit">Limit of f(x) at x0</option>
+          </select>
+          
+        </div>
+      </div>
+      <div class="grid2">
+        <div>
+          <label for="x0">x0</label>
+          <input id="x0" type="text" placeholder="e.g. 0, pi/3, sqrt(2)" aria-describedby="x0-help" />
+        </div>
+        <div>
+          <label for="interval">Interval [a, b]</label>
+          <input id="interval" type="text" placeholder="e.g. -2, 2" aria-describedby="interval-help" />
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn btn-primary" id="computeBtn">Compute</button>
+        <button class="btn btn-ghost" id="plotBtn">Plot f(x)</button>
+        <div class="chip"><small>Tolerance</small><span id="tolChip">1e-10</span></div>
+      </div>
+      <div class="result">
+        <div class="title">Result</div>
+        <div class="out" id="resultLatex" aria-live="polite"></div>
+        <div class="error" id="errorMsg" role="alert"></div>
+      </div>
+    </section>
+    <section class="card">
+      <h2>Visualization</h2>
+      <div id="plot" class="plot" role="img" aria-label="Function plot"></div>
+      <div class="grid2" style="margin-top:12px;">
+        <div>
+          <label for="samples">Plot samples</label>
+          <input id="samples" type="number" min="50" max="2000" value="400" aria-describedby="samples-help" />
+        </div>
+        <div>
+          <label for="domain">Plot domain [xmin, xmax]</label>
+          <input id="domain" type="text" placeholder="e.g. -5, 5" aria-describedby="domain-help" />
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div>Supports standard math functions: sin, cos, tan, exp, log, sqrt, abs, floor, ceil, etc.</div>
+    <div>Symbolic by math.js; numeric by adaptive Simpson and robust finite differences.</div>
+  </footer>
+
+  <script>
+    // --- Helper Functions ---
+
+    /**
+     * Sanitize input to prevent XSS or invalid characters.
+     * @param {string} input - The input string to sanitize.
+     * @returns {string} Sanitized string.
+     */
+    function sanitizeInput(input) {
+      return input.replace(/[<>"'&]/g, '');
+    }
+
+    /**
+     * Convert LaTeX to a math.js-parsable string.
+     * @param {string} latex - The LaTeX string from MathQuill.
+     * @returns {string} A string compatible with math.js.
+     */
+    function latexToMathJS(latex) {
+      return latex
+        .replace(/\\cdot/g, '*')
+        .replace(/\\div/g, '/')
+        .replace(/\\frac{([^}]*)}{([^}]*)}/g, '($1)/($2)')
+        .replace(/\\sqrt{([^}]*)}/g, 'sqrt($1)')
+        .replace(/([0-9a-zA-Z_.]+)\^{([^}]*)}/g, '$1^($2)')
+        .replace(/([0-9a-zA-Z_.]+)\^(\S)/g, '$1^$2')
+        .replace(/\\sin/g, 'sin')
+        .replace(/\\cos/g, 'cos')
+        .replace(/\\tan/g, 'tan')
+        .replace(/\\exp/g, 'exp')
+        .replace(/\\ln/g, 'log')
+        .replace(/\\log/g, 'log10')
+        .replace(/\\pi/g, 'pi')
+        .replace(/\\left|\\right/g, '')
+        .replace(/\{|\}/g, '')
+        .trim();
+    }
+
+    /**
+     * Safely parse a string into a number using math.js.
+     * @param {string} str - The string to parse (e.g., "pi/2", "sqrt(3)").
+     * @returns {number} The evaluated number.
+     */
+    function parseValue(str) {
+      if (!str || !String(str).trim()) throw new Error("Value is empty.");
+      try {
+        const node = math.parse(sanitizeInput(str));
+        const code = node.compile();
+        const val = code.evaluate();
+        const num = Number(val);
+        if (!isFinite(num)) throw new Error(`Value "${str}" evaluated to non-finite number.`);
+        return num;
+      } catch (e) {
+        throw new Error(`Invalid value "${str}": ${e.message}`);
+      }
+    }
+
+    /**
+     * Compile a math.js expression into a JavaScript function.
+     * @param {string} expr - The math.js expression string.
+     * @param {string} [variable='x'] - The variable name to use in the function.
+     * @returns {function(number): number} A JavaScript function f(x).
+     */
+    function compileFunction(expr, variable = 'x') {
+      try {
+        const node = math.parse(sanitizeInput(expr));
+        const code = node.compile();
+        return (x) => {
+          const scope = {};
+          scope[variable] = x;
+          const v = code.evaluate(scope);
+          const num = Number(v);
+          return isFinite(num) ? num : NaN;
+        };
+      } catch (e) {
+        throw new Error(`Invalid expression "${expr}": ${e.message}`);
+      }
+    }
+
+    /**
+     * Robust function evaluation for numeric methods.
+     * @param {function} f - The compiled function.
+     * @param {number} x - The point to evaluate at.
+     * @returns {number} The result, f(x).
+     */
+    function robustEval(f, x) {
+      if (!isFinite(x)) throw new Error(`Evaluation point ${x} is not finite.`);
+      try {
+        const y = f(x);
+        if (!isFinite(y)) throw new Error(`Function returned non-finite value at ${x}.`);
+        return y;
+      } catch (e) {
+        throw new Error(`Function evaluation failed at ${x}: ${e.message}`);
+      }
+    }
+
+    /**
+     * Adaptive Simpson integration.
+     */
+    function integrateAdaptiveSimpson(f, a, b, opts = {}) {
+      const absTol = opts.absTol ?? 1e-10;
+      const relTol = opts.relTol ?? 1e-10;
+      const maxDepth = opts.maxDepth ?? 20;
+
+      function simpson(fa, fm, fb, a, b) {
+        return ((b - a) * (fa + 4 * fm + fb)) / 6;
+      }
+
+      if (!isFinite(a) || !isFinite(b)) throw new Error("Integration limits must be finite.");
+      if (a === b) return 0;
+
+      const fa = robustEval(f, a);
+      const fb = robustEval(f, b);
+      const m = 0.5 * (a + b);
+      const fm = robustEval(f, m);
+      const Sab = simpson(fa, fm, fb, a, b);
+
+      function recurse(a, fa, m, fm, b, fb, Sab, depth) {
+        const lm = 0.5 * (a + m);
+        const rm = 0.5 * (m + b);
+        const flm = robustEval(f, lm);
+        const frm = robustEval(f, rm);
+
+        const Sa = simpson(fa, flm, fm, a, m);
+        const Sb = simpson(fm, frm, fb, m, b);
+        const S12 = Sa + Sb;
+
+        const err = Math.abs(S12 - Sab);
+        const tol = 15 * Math.max(absTol, relTol * Math.abs(S12));
+
+        if (err <= tol || depth >= maxDepth) {
+          return S12 + (S12 - Sab) / 15; // Richardson correction
+        }
+        return (
+          recurse(a, fa, lm, flm, m, fm, Sa, depth + 1) +
+          recurse(m, fm, rm, frm, b, fb, Sb, depth + 1)
+        );
+      }
+
+      return recurse(a, fa, m, fm, b, fb, Sab, 0);
+    }
+
+    /**
+     * Numeric derivative at x0 using Richardson extrapolation.
+     */
+    function derivativeNumeric(f, x0) {
+      if (!isFinite(x0)) throw new Error("x0 must be finite.");
+      const hBase = Math.max(1e-5, Math.abs(x0) * 1e-5);
+
+      function df(h) {
+        const f1 = robustEval(f, x0 + h);
+        const f2 = robustEval(f, x0 - h);
+        return (f1 - f2) / (2 * h);
+      }
+
+      const d1 = df(hBase);
+      const d2 = df(hBase / 2);
+      return (4 * d2 - d1) / 3; // O(h^4) error
+    }
+
+    /**
+     * Numeric limit of f(x) at x0 using robust sampling.
+     */
+    function limitNumeric(f, x0) {
+      if (!isFinite(x0)) throw new Error("x0 must be finite.");
+      const hBase = Math.max(1e-6, Math.abs(x0) * 1e-6);
+      const samples = [];
+      for (let k = 0; k < 6; k++) {
+        const h = hBase / Math.pow(2, k);
+        let left, right;
+        try {
+          left = f(x0 - h);
+          right = f(x0 + h);
+        } catch {
+          continue;
+        }
+        if (isFinite(left) && isFinite(right)) {
+          samples.push((left + right) / 2);
+        }
+      }
+      if (!samples.length) throw new Error("Could not sample finite values near x0.");
+      samples.sort((a, b) => a - b);
+      const mid = Math.floor(samples.length / 2);
+      return samples.length % 2 === 0
+        ? (samples[mid - 1] + samples[mid]) / 2
+        : samples[mid];
+    }
+
+    /**
+     * Render LaTeX using KaTeX into a DOM element.
+     * @param {HTMLElement} el - The target element.
+     * @param {string} latex - The LaTeX string to render.
+     */
+    function renderLatex(el, latex) {
+      try {
+        katex.render(latex, el, {
+          throwOnError: false,
+          displayMode: true,
+          trust: true,
+          macros: {
+            "\\derivative": "\\frac{d}{d#1}",
+          },
+          strict: false,
+        });
+      } catch (e) {
+        throw new Error(`Failed to render LaTeX: ${e.message}`);
+      }
+    }
+
+    /**
+     * Format a number for display.
+     * @param {number} x - The number to format.
+     * @returns {string} The formatted number string.
+     */
+    function fmtNumber(x) {
+      if (!isFinite(x)) return String(x);
+      const abs = Math.abs(x);
+      if (abs !== 0 && (abs < 1e-6 || abs >= 1e8)) {
+        return x.toExponential(6);
+      }
+      return Number(x.toPrecision(10)).toString();
+    }
+
+    // --- Main Application Logic ---
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // Initialize MathQuill
+      const MQ = MathQuill.getInterface(2);
+      let mathField;
+
+      // UI Constants
+      const suggestions = [
+        { latex: 'x^2', title: 'Square' },
+        { latex: '\\sqrt{x}', title: 'Square root' },
+        { latex: 'e^x', title: 'Exponential' },
+        { latex: '\\sin(x)', title: 'Sine' },
+        { latex: '\\cos(x)', title: 'Cosine' },
+        { latex: '\\frac{1}{x}', title: 'Reciprocal' },
+      ];
+      const mathKeys = [
+        { latex: '+', type: 'operator' },
+        { latex: '-', type: 'operator' },
+        { latex: '\\cdot', type: 'operator', display: '×' },
+        { latex: '\\div', type: 'operator', display: '÷' },
+        { latex: '(', type: 'bracket' },
+        { latex: ')', type: 'bracket' },
+        { latex: '^', type: 'operator', display: 'x^n' },
+        { latex: '_', type: 'operator', display: 'x_n' },
+        { latex: '\\sqrt', type: 'function', display: '√' },
+        { latex: '\\frac', type: 'template', display: 'a/b' },
+        { latex: '\\sin', type: 'function' },
+        { latex: '\\cos', type: 'function' },
+        { latex: '\\tan', type: 'function' },
+        { latex: '\\ln', type: 'function' },
+        { latex: 'e^', type: 'template' },
+        { latex: '\\pi', type: 'constant', display: 'π' },
+      ];
+
+      // Get computed CSS variables for Plotly
+      const computedStyle = getComputedStyle(document.documentElement);
+      const plotColors = {
+        accent2: computedStyle.getPropertyValue('--accent2').trim(),
+        border: computedStyle.getPropertyValue('--border').trim(),
+        muted: computedStyle.getPropertyValue('--muted').trim(),
+        text: computedStyle.getPropertyValue('--text').trim(),
+      };
+
+      // Get DOM Elements
+      const mathInput = document.getElementById('math-input');
+      const suggestionContainer = document.getElementById('mathSuggestions');
+      const keyboard = document.getElementById('mathKeyboard');
+      const keyboardToggle = document.getElementById('keyboardToggle');
+      const resultEl = document.getElementById('resultLatex');
+      const errorEl = document.getElementById('errorMsg');
+      const computeBtn = document.getElementById('computeBtn');
+      const plotBtn = document.getElementById('plotBtn');
+      const variableInput = document.getElementById('variable');
+
+      // Initialize Math Input
+      mathField = MQ.MathField(mathInput, {
+        spaceBehavesLikeTab: true,
+        handlers: {
+          edit: () => {
+            const latex = mathField.latex();
+            document.getElementById('expr').value = latexToMathJS(latex);
+          },
+        },
+      });
+      mathField.latex('x^2'); // Set initial value
+
+      // Initialize suggestions
+      suggestions.forEach((suggestion) => {
+        const btn = document.createElement('button');
+        btn.className = 'math-suggestion';
+        btn.title = suggestion.title;
+        btn.setAttribute('aria-label', `Insert ${suggestion.title}`);
+        btn.addEventListener('click', () => {
+          mathField.write(suggestion.latex);
+          mathField.focus();
+        });
+        suggestionContainer.appendChild(btn);
+        katex.render(suggestion.latex, btn, { throwOnError: false });
+      });
+
+      // Initialize keyboard
+      mathKeys.forEach((key) => {
+        const btn = document.createElement('button');
+        btn.className = 'math-key';
+        btn.setAttribute('aria-label', `Insert ${key.display || key.latex}`);
+        btn.innerHTML = key.display || `$${key.latex}$`;
+        btn.addEventListener('click', () => {
+          mathField.write(key.latex);
+          mathField.focus();
+        });
+        keyboard.appendChild(btn);
+        if (!key.display) {
+          katex.render(key.latex, btn, { throwOnError: false });
+        }
+      });
+
+      // Toggle keyboard
+      keyboardToggle.addEventListener('click', () => {
+        keyboard.classList.toggle('active');
+      });
+
+      // Close keyboard when clicking outside
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('.math-input-wrapper') && !e.target.closest('.math-keyboard')) {
+          keyboard.classList.remove('active');
+        }
+      });
+
+      // Validate variable input
+      variableInput.addEventListener('input', () => {
+        const value = variableInput.value.trim();
+        if (!/^[a-zA-Z]$/.test(value)) {
+          variableInput.setCustomValidity('Variable must be a single letter.');
+        } else {
+          variableInput.setCustomValidity('');
+        }
+      });
+
+      // Core Logic Handlers
+
+      /**
+       * Shows an error message in the UI.
+       * @param {Error|string} err - The error object or message string.
+       */
+      function showError(err) {
+        errorEl.textContent = err instanceof Error ? err.message : String(err);
+        errorEl.style.display = 'flex';
+        resultEl.textContent = '';
+      }
+
+      /**
+       * Clears any visible error messages.
+       */
+      function clearError() {
+        errorEl.textContent = '';
+        errorEl.style.display = 'none';
+      }
+
+      /**
+       * Disables/enables buttons during computation.
+       * @param {boolean} disabled - Whether to disable buttons.
+       */
+      function toggleButtons(disabled) {
+        computeBtn.disabled = disabled;
+        plotBtn.disabled = disabled;
+        computeBtn.textContent = disabled ? 'Computing...' : 'Compute';
+        plotBtn.textContent = disabled ? 'Plotting...' : 'Plot f(x)';
+      }
+
+      /**
+       * Compute Button Handler
+       */
+      computeBtn.addEventListener('click', async () => {
+        clearError();
+        resultEl.textContent = '';
+        toggleButtons(true);
+        try {
+          const expr = sanitizeInput(document.getElementById('expr').value.trim());
+          const variable = sanitizeInput(document.getElementById('variable').value.trim() || 'x');
+          const op = document.getElementById('op').value;
+          const x0Str = sanitizeInput(document.getElementById('x0').value.trim());
+          const intervalStr = sanitizeInput(document.getElementById('interval').value.trim());
+
+          if (!expr) throw new Error("Enter a function expression.");
+          if (!/^[a-zA-Z]$/.test(variable)) throw new Error("Variable must be a single letter.");
+          const f = compileFunction(expr, variable);
+
+          if (op === 'evaluate') {
+            if (!x0Str) throw new Error("Enter x0 for evaluation.");
+            const x0 = parseValue(x0Str);
+            const y = robustEval(f, x0);
+            const node = math.parse(expr);
+            const functionLatex = node.toTex({ parenthesis: 'keep', implicit: 'hide' });
+            const x0Node = math.parse(x0Str);
+            const x0Latex = x0Node.toTex({ parenthesis: 'keep', implicit: 'hide' });
+            const resultLatex = `\\begin{aligned}
+              f(${variable}) &= ${functionLatex} \\\\[6pt]
+              ${variable}_0 &= ${x0Latex} \\\\[6pt]
+              f(${x0Latex}) &= ${fmtNumber(y)}
+            \\end{aligned}`;
+            renderLatex(resultEl, resultLatex);
+          } else if (op === 'differentiateSymbolic') {
+            const originalNode = math.parse(expr);
+            const originalLatex = originalNode.toTex({ parenthesis: 'keep', implicit: 'hide' });
+            const dnode = math.derivative(expr, variable);
+            const derivativeLatex = dnode.toTex({ parenthesis: 'keep', implicit: 'hide' });
+            const resultLatex = `f(${variable}) = ${originalLatex}\\\\[8pt]
+              \\frac{d}{d${variable}}f(${variable}) = ${derivativeLatex}`;
+            renderLatex(resultEl, resultLatex);
+          } else if (op === 'differentiateNumeric') {
+            if (!x0Str) throw new Error("Enter x0 for derivative.");
+            const x0 = parseValue(x0Str);
+            const df = derivativeNumeric(f, x0);
+            const x0Node = math.parse(x0Str);
+            const x0Latex = x0Node.toTex();
+            renderLatex(resultEl, `\\left.\\dfrac{df}{d${variable}}\\right|_{${variable}=${x0Latex}} \\approx ${fmtNumber(df)}`);
+          } else if (op === 'integrateDefinite') {
+            if (!intervalStr) throw new Error("Enter interval as a, b.");
+            const parts = intervalStr.split(',').map(s => s.trim());
+            if (parts.length !== 2) throw new Error("Interval must be two comma-separated values.");
+            const a = parseValue(parts[0]);
+            const b = parseValue(parts[1]);
+            const aNode = math.parse(parts[0]);
+            const bNode = math.parse(parts[1]);
+            const I = integrateAdaptiveSimpson(f, a, b);
+            renderLatex(resultEl, `\\int_{${aNode.toTex()}}^{${bNode.toTex()}} f(${variable})\\, d${variable} \\approx ${fmtNumber(I)}`);
+          } else if (op === 'limit') {
+            if (!x0Str) throw new Error("Enter x0 for limit.");
+            const x0 = parseValue(x0Str);
+            const x0Node = math.parse(x0Str);
+            const x0Latex = x0Node.toTex();
+            const L = limitNumeric(f, x0);
+            renderLatex(resultEl, `\\lim_{${variable}\\to ${x0Latex}} f(${variable}) \\approx ${fmtNumber(L)}`);
+          } else {
+            throw new Error("Unknown operation.");
+          }
+        } catch (err) {
+          showError(err);
+        } finally {
+          toggleButtons(false);
+        }
+      });
+
+      /**
+       * Plot Button Handler
+       */
+      plotBtn.addEventListener('click', async () => {
+        clearError();
+        toggleButtons(true);
+        try {
+          const expr = sanitizeInput(document.getElementById('expr').value.trim());
+          const variable = sanitizeInput(document.getElementById('variable').value.trim() || 'x');
+          const domainStr = sanitizeInput(document.getElementById('domain').value.trim());
+          const samples = Number(document.getElementById('samples').value) || 400;
+
+          if (!expr) throw new Error("Enter a function expression.");
+          if (!/^[a-zA-Z]$/.test(variable)) throw new Error("Variable must be a single letter.");
+          const f = compileFunction(expr, variable);
+          let xmin = -5,
+              xmax = 5;
+
+          if (domainStr) {
+            const parts = domainStr.split(',').map(s => s.trim());
+            if (parts.length !== 2) throw new Error("Domain must be two comma-separated values.");
+            xmin = parseValue(parts[0]);
+            xmax = parseValue(parts[1]);
+          } else {
+            const intervalStr = document.getElementById('interval').value.trim();
+            if (intervalStr) {
+              const parts = intervalStr.split(',').map(s => s.trim());
+              if (parts.length === 2) {
+                xmin = parseValue(parts[0]);
+                xmax = parseValue(parts[1]);
+              }
+            }
+          }
+          if (!isFinite(xmin) || !isFinite(xmax) || xmin >= xmax) {
+            throw new Error("Invalid domain. Must be two different finite numbers with xmin < xmax.");
+          }
+
+          const x = [];
+          const y = [];
+          const N = Math.max(50, Math.min(2000, samples));
+          for (let i = 0; i < N; i++) {
+            const xi = xmin + (xmax - xmin) * (i / (N - 1));
+            let yi;
+            try {
+              yi = f(xi);
+            } catch {
+              yi = NaN;
+            }
+            x.push(xi);
+            y.push(isFinite(yi) ? yi : NaN);
+          }
+
+          // Auto-scale y-axis based on finite values
+          const finiteY = y.filter(isFinite);
+          const yMin = finiteY.length ? Math.min(...finiteY) : -1;
+          const yMax = finiteY.length ? Math.max(...finiteY) : 1;
+          const yRange = yMax - yMin;
+          const yPadding = yRange * 0.1 || 1;
+
+          const trace = {
+            x,
+            y,
+            type: 'scatter',
+            mode: 'lines',
+            name: `f(${variable})`,
+            line: {
+              color: plotColors.accent2,
+              width: 2.5,
+            },
+            connectgaps: false,
+          };
+
+          const layout = {
+            title: {
+              text: `Plot of $f(${variable}) = ${mathField.latex()}$`,
+              x: 0.5,
+              xanchor: 'center',
+            },
+            xaxis: {
+              title: `$${variable}$`,
+              gridcolor: plotColors.border,
+              zerolinecolor: plotColors.muted,
+              linecolor: plotColors.border,
+              color: plotColors.text,
+              ticks: 'outside',
+              range: [xmin, xmax],
+            },
+            yaxis: {
+              title: `$f(${variable})$`,
+              gridcolor: plotColors.border,
+              zerolinecolor: plotColors.muted,
+              linecolor: plotColors.border,
+              color: plotColors.text,
+              ticks: 'outside',
+              range: [yMin - yPadding, yMax + yPadding],
+            },
+            plot_bgcolor: 'transparent',
+            paper_bgcolor: 'transparent',
+            font: {
+              color: plotColors.text,
+              family: 'Inter, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif',
+            },
+            margin: { l: 50, r: 30, b: 50, t: 60 },
+            hovermode: 'x unified',
+            responsive: true,
+          };
+
+          Plotly.newPlot('plot', [trace], layout, {
+            responsive: true,
+            displaylogo: false,
+            modeBarButtonsToRemove: ['toImage', 'sendDataToCloud'],
+          });
+        } catch (err) {
+          showError(err);
+        } finally {
+          toggleButtons(false);
+        }
+      });
+    });
+  </script>
+</body>
+</html>

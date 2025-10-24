@@ -157,6 +157,7 @@ header .chip {
   backdrop-filter: saturate(130%) blur(12px);
   padding: 24px;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+   overflow: hidden;
 }
 .card:hover {
   transform: translateY(-2px);
@@ -199,6 +200,20 @@ input[type="text"], input[type="number"], select {
   color: var(--text) !important;
   font-size: 16px !important;
 }
+/*Soham couldn't see the cursor so I updated the cursor color */
+.mq-cursor {
+  background-color: #ffffff !important; /* white cursor for MathQuill */
+  border-left: 1px solid #ffffff !important; 
+  height: 1em !important; 
+}
+
+/* New rule: Apply to all text inputs for consistency */
+input[type="text"],
+input[type="number"],
+select,
+.mq-editable-field {
+  caret-color: #ffffff !important; /* White caret for regular inputs and MathQuill fallback */
+}
 
 .math-input-wrapper {
   position: relative;
@@ -219,6 +234,18 @@ input[type="text"], input[type="number"], select {
   border-color: var(--accent);
   background: rgba(255,255,255,0.08);
   box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.15);
+}
+/* Improve mobile tap target */
+.math-input-wrapper {
+  min-height: 50px; /* Larger touch area */
+  display: flex;
+  align-items: center;
+}
+
+@media (max-width: 768px) {
+  .math-input-wrapper {
+    padding: 16px; /* More padding for fat-finger typing */
+  }
 }
 
 .mq-math-mode {
@@ -493,6 +520,9 @@ header .chip {
   min-height: 56px;
   transition: all 0.3s ease;
   position: relative;
+  overflow: hidden; /* Clip any overflow from .out */
+  max-width: 100%; /* Prevent card expansion */
+  box-sizing: border-box;
 }
 .result:hover {
   transform: translateY(-1px);
@@ -520,6 +550,9 @@ header .chip {
   line-height: 1.5;
   overflow-x: auto;
   padding-bottom: 4px;
+  max-width: 100%; /* Constrain to parent width */
+  white-space: nowrap; /* Prevent wrapping; force horizontal scroll for long math */
+  display: block; /* Ensure it's a scrollable block */
 }
 .result .out::-webkit-scrollbar {
   height: 4px;
@@ -671,6 +704,9 @@ header .chip {
         --glass: rgba(255,255,255,0.12);
         --glass2: rgba(255,255,255,0.16);
       }
+      .mq-cursor {
+  background-color: #f3f6f3 !important; /* Bright green cursor */
+}
     }
 
     /* Reduced motion */
@@ -815,21 +851,60 @@ header .chip {
     { latex: '\\pi', type: 'constant', display: 'π' }
   ];
 
-  document.addEventListener('DOMContentLoaded', function() {
-    // Initialize MathQuill field
-    const mathInput = document.getElementById('math-input');
-    mathField = MQ.MathField(mathInput, {
-      spaceBehavesLikeTab: true,
-      handlers: {
-        edit: function() {
-          const latex = mathField.latex();
-          document.getElementById('expr').value = latexToMathJS(latex);
-        }
+ document.addEventListener('DOMContentLoaded', function() {
+  // Initialize MathQuill field
+  const mathInput = document.getElementById('math-input');
+  mathField = MQ.MathField(mathInput, {
+    spaceBehavesLikeTab: true,
+    handlers: {
+      edit: function() {
+        const latex = mathField.latex();
+        document.getElementById('expr').value = latexToMathJS(latex);
       }
-    });
+    }
+  });
 
-    // Initialize suggestions
-    const suggestionContainer = document.getElementById('mathSuggestions');
+  // Mobile detection and enhancements (added code starts here)
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+  // Force focus on touch for mobile (reuse existing mathInput var)
+  mathInput.addEventListener('touchstart', function(e) {
+    if (isMobile) {
+      e.preventDefault(); // Prevent default zoom/scroll
+      setTimeout(() => {
+        mathField.focus(); // Delay to ensure keyboard opens
+        // REMOVED: document.getElementById('expr').focus(); // Hidden inputs can't receive input!
+      }, 100);
+    }
+  }, { passive: false });
+
+  // NEW: Safer mobile re-focus on keypress (helps with Android/iOS input bugs; no internal override)
+  if (isMobile) {
+    mathInput.addEventListener('keyup', function(e) {
+      // Re-focus after each key to keep cursor/keyboard active
+      setTimeout(() => {
+        mathField.focus();
+      }, 50);
+    });
+    console.log('Mobile mode enabled: Keyup listener attached for re-focus.'); // TEMP DEBUG: Check console
+  }
+
+  // Add a mobile hint near the input (optional, for UX)
+  const mobileHint = document.createElement('small');
+  mobileHint.textContent = 'Tap to type or use ⌨ for symbols';
+  mobileHint.style.cssText = 'display: block; font-size: 11px; color: var(--muted); margin-top: 4px;';
+  mobileHint.style.display = isMobile ? 'block' : 'none';
+  document.querySelector('.math-input-wrapper').appendChild(mobileHint);
+  // Mobile enhancements end here
+
+  // Set initial expression EARLIER (before suggestions/keyboard, to ensure rendering)
+  mathField.latex('x^2');
+  console.log('Initial latex set to x^2'); // TEMP DEBUG: Check console
+
+  // Initialize suggestions
+  const suggestionContainer = document.getElementById('mathSuggestions');
+  if (suggestionContainer) { // Safety check
+    console.log('Suggestions container found'); // TEMP DEBUG
     suggestions.forEach(suggestion => {
       const btn = document.createElement('button');
       btn.className = 'math-suggestion';
@@ -843,9 +918,15 @@ header .chip {
       // Render the math in the button
       katex.render(suggestion.latex, btn, { throwOnError: false });
     });
+    console.log('Suggestions initialized'); // TEMP DEBUG
+  } else {
+    console.error('Suggestions container not found!'); // TEMP DEBUG
+  }
 
-    // Initialize keyboard
-    const keyboard = document.getElementById('mathKeyboard');
+  // Initialize keyboard
+  const keyboard = document.getElementById('mathKeyboard');
+  if (keyboard) { // Safety check
+    console.log('Math keyboard container found'); // TEMP DEBUG
     mathKeys.forEach(key => {
       const btn = document.createElement('button');
       btn.className = 'math-key';
@@ -859,24 +940,31 @@ header .chip {
         katex.render(key.latex, btn, { throwOnError: false });
       }
     });
+    console.log('Math keyboard initialized'); // TEMP DEBUG
+  } else {
+    console.error('Math keyboard container not found!'); // TEMP DEBUG
+  }
 
-    // Toggle keyboard
-    const keyboardToggle = document.getElementById('keyboardToggle');
+  // Toggle keyboard
+  const keyboardToggle = document.getElementById('keyboardToggle');
+  if (keyboardToggle) {
     keyboardToggle.onclick = () => {
       keyboard.classList.toggle('active');
     };
+    console.log('Keyboard toggle attached'); // TEMP DEBUG
+  } else {
+    console.error('Keyboard toggle not found!'); // TEMP DEBUG
+  }
 
-    // Close keyboard when clicking outside
-    document.addEventListener('click', (e) => {
-      if (!e.target.closest('.math-input-wrapper')) {
-        keyboard.classList.remove('active');
-      }
-    });
-
-    // Set initial expression
-    mathField.latex('x^2');
+  // Close keyboard when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.math-input-wrapper')) {
+      keyboard.classList.remove('active');
+    }
   });
 
+  console.log('DOMContentLoaded fully executed'); // TEMP DEBUG: Overall success
+});
   // Convert LaTeX to math.js expression
   function latexToMathJS(latex) {
     return latex
@@ -1012,7 +1100,10 @@ function renderLatex(el, latex) {
     macros: {
       "\\derivative": "\\frac{d}{d#1}",  // Custom macro for derivative
     },
-    strict: false
+    strict: false,
+    linebreaks: false,  // Disable automatic line breaks
+    maxSize: '100%',    // Limit render size to container
+    wrap: false         // Prevent wrapping
   });
 }
 
