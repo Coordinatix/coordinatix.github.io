@@ -716,6 +716,19 @@ header .chip {
         transition: none !important;
       }
     }
+    .mq-editable-field.mq-empty::after {
+      content: 'e.g. x^2 + sin(x)';
+      color: var(--muted) !important;
+      font-style: italic;
+      pointer-events: none;
+      position: absolute;
+      left: 0;
+      top: 0;
+      opacity: 0.6;
+    }
+    .mq-editable-field:not(.mq-empty)::after {
+      content: none; /* Hide when not empty */
+    }
   </style>
 </head>
 <body>
