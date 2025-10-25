@@ -157,7 +157,7 @@ header .chip {
   backdrop-filter: saturate(130%) blur(12px);
   padding: 24px;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
-   overflow: hidden;
+  /* FIXED: Removed overflow: hidden; to prevent clipping the keyboard */
 }
 .card:hover {
   transform: translateY(-2px);
@@ -299,7 +299,7 @@ select,
   width: 32px;
   height: 32px;
   display: flex;
-  align-items: center;
+  align-items: center; 
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -321,11 +321,25 @@ select,
   border-radius: 14px;
   padding: 12px;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(5, 1fr); /* FIXED: Fixed 5 rows */
+  grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); /* FIXED: Auto-columns for horizontal scroll */
+  grid-auto-flow: column; /* FIXED: Fill columns first (no extra rows) */
+  grid-auto-rows: 1fr; /* FIXED: Even rows */
+  justify-content: start; /* FIXED: Left-align */
   gap: 8px;
   z-index: 10;
   box-shadow: var(--shadow);
-  display: none;
+  display: none; /* Hidden by default */
+  height: calc(5 * 32px + 4 * 8px + 24px); /* FIXED: Height for 5 rows */
+  overflow-x: auto; /* FIXED: Horizontal scroll */
+  overflow-y: hidden; /* FIXED: No vertical */
+  scrollbar-width: none; /* Hide scrollbar - Firefox */
+  -ms-overflow-style: none; /* Hide scrollbar - IE/Edge */
+  -webkit-overflow-scrolling: touch; /* Smooth touch scroll on iOS */
+}
+
+.math-keyboard::-webkit-scrollbar {
+  display: none; /* Hide scrollbar - WebKit/Chrome/Safari */
 }
 
 .math-keyboard.active {
@@ -341,11 +355,61 @@ select,
   cursor: pointer;
   transition: all 0.2s ease;
   color: var(--text);
+  min-height: 32px; /* Base size */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px; /* Readable */
+  line-height: 1.2;  /* NEW: Tighter for math glyphs */
+  vertical-align: middle;  /* NEW: Center math */
 }
 
 .math-key:hover {
   background: var(--glass2);
   border-color: var(--accent);
+  transform: scale(1.05); /* Subtle feedback */
+}
+
+/* NEW: Style for KaTeX in keys */
+.math-key .katex {
+  font-size: 14px !important;
+  line-height: 1 !important;
+  display: inline-block !important;
+  vertical-align: middle;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Mobile: Larger keys for fat-finger typing; visible still ~4 cols */
+@media (max-width: 768px) {
+  .math-key {
+    min-height: 48px; /* Bigger touch targets */
+    font-size: 16px;
+    padding: 12px;
+  }
+  .math-keyboard {
+    height: calc(5 * 48px + 4 * 8px + 32px); /* Height for 5 rows on mobile */
+    grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); /* FIXED: Auto with wider min */
+    padding: 16px; /* More space */
+  }
+  .math-key .katex {
+    font-size: 16px !important;  /* Larger for readability */
+  }
+  /* Toggle button remains unchanged */
+}
+
+/* Utility keys: Span columns appropriately; adjust for horizontal layout */
+.math-key[title="DEL"], .math-key[title="CLR"] {
+  grid-column: span 2; /* Wider on desktop (spans 2 of auto-cols) */
+  background: var(--danger); /* Red for delete */
+  color: white;
+}
+
+@media (max-width: 768px) {
+  .math-key[title="DEL"], .math-key[title="CLR"] {
+    grid-column: span 4; /* Wider on mobile */
+  }
 }
 .chip {
   display: inline-flex;
@@ -841,32 +905,148 @@ header .chip {
     { latex: '\\sqrt{x}', title: 'Square root' },
     { latex: 'e^x', title: 'Exponential' },
     { latex: '\\sin(x)', title: 'Sine' },
-    { latex: '\\cos(x)', title: 'Cosine' }
+    { latex: '\\cos(x)', title: 'Cosine' },
+    { latex: 'x', title: 'x' },
+    { latex: 'y', title: 'y' },
+    { latex: '|x|', title: 'Absolute value' }
   ];
 
-  // Advanced mathematical functions for keyboard
+  // Advanced mathematical functions for keyboard (with uppercase letters added)
   const mathKeys = [
-    { latex: '+', type: 'operator' },
-    { latex: '-', type: 'operator' },
-    { latex: '\\cdot', type: 'operator', display: '×' },
-    { latex: '\\div', type: 'operator', display: '÷' },
-    { latex: '(', type: 'bracket' },
-    { latex: ')', type: 'bracket' },
-    { latex: '{', type: 'bracket' },
-    { latex: '}', type: 'bracket' },
-    { latex: '[', type: 'bracket' },
-    { latex: ']', type: 'bracket' },
-    { latex: '^', type: 'operator', display: 'x^n' },
-    { latex: '_', type: 'operator', display: 'x_n' },
-    { latex: '\\sqrt', type: 'function', display: '√' },
-    { latex: '\\frac', type: 'template', display: 'a/b' },
-    { latex: '\\sin', type: 'function' },
-    { latex: '\\cos', type: 'function' },
-    { latex: '\\tan', type: 'function' },
-    { latex: '\\ln', type: 'function' },
-    { latex: 'e^', type: 'template' },
-    { latex: '\\pi', type: 'constant', display: 'π' }
-  ];
+  // Basic operators (Row 1)
+  { latex: '+', type: 'operator', display: '+' },
+  { latex: '-', type: 'operator', display: '−' },
+  { latex: '\\times', type: 'operator', display: '×' },
+  { latex: '\\div', type: 'operator', display: '÷' },
+  
+  // Brackets (Row 2)
+  { latex: '(', type: 'bracket', display: '(' },
+  { latex: ')', type: 'bracket', display: ')' },
+  { latex: '[', type: 'bracket', display: '[' },
+  { latex: ']', type: 'bracket', display: ']' },
+  { latex: '{', type: 'bracket', display: '{' },
+  { latex: '}', type: 'bracket', display: '}' },
+  
+  // Exponents/roots (Row 3)
+  { latex: 'x^{}', type: 'operator', display: 'xⁿ' },
+  { latex: 'x_{}', type: 'operator', display: 'xₙ' },
+  { latex: '\\sqrt{}', type: 'function', display: '√' },
+  { latex: '\\sqrt[3]{}', type: 'function', display: '∛' },
+  
+  // Fractions (Row 4)
+  { latex: '\\frac{}{}', type: 'template', display: 'a/b' },
+  { latex: '\\pm', type: 'operator', display: '±' },
+  { latex: '\\mp', type: 'operator', display: '∓' },
+  { latex: '\\infty', type: 'constant', display: '∞' },
+  
+  // Trig functions (Row 5)
+  { latex: '\\sin{}', type: 'function', display: 'sin' },
+  { latex: '\\cos{}', type: 'function', display: 'cos' },
+  { latex: '\\tan{}', type: 'function', display: 'tan' },
+  { latex: '\\csc{}', type: 'function', display: 'csc' },
+  
+  // Hyperbolic (Row 6)
+  { latex: '\\sinh', type: 'function', display: 'sinh' },
+  { latex: '\\cosh', type: 'function', display: 'cosh' },
+  { latex: '\\tanh', type: 'function', display: 'tanh' },
+  { latex: '\\ln', type: 'function', display: 'ln' },
+  
+  // Logs/exps (Row 7)
+  { latex: '\\log_{10}{}', type: 'function', display: 'log' },
+  { latex: 'e^{}', type: 'template', display: 'e^x' },
+  { latex: '\\exp', type: 'function', display: 'exp' },
+  { latex: '\\pi', type: 'constant', display: 'π' },
+
+  // Latin Alphabet Lowercase (variables - italic in math)
+  { latex: 'a', type: 'letter', display: 'a' },
+  { latex: 'b', type: 'letter', display: 'b' },
+  { latex: 'c', type: 'letter', display: 'c' },
+  { latex: 'd', type: 'letter', display: 'd' },
+  { latex: 'e', type: 'letter', display: 'e' },
+  { latex: 'f', type: 'letter', display: 'f' },
+  { latex: 'g', type: 'letter', display: 'g' },
+  { latex: 'h', type: 'letter', display: 'h' },
+  { latex: 'i', type: 'letter', display: 'i' },
+  { latex: 'j', type: 'letter', display: 'j' },
+  { latex: 'k', type: 'letter', display: 'k' },
+  { latex: 'l', type: 'letter', display: 'l' },
+  { latex: 'm', type: 'letter', display: 'm' },
+  { latex: 'n', type: 'letter', display: 'n' },
+  { latex: 'o', type: 'letter', display: 'o' },
+  { latex: 'p', type: 'letter', display: 'p' },
+  { latex: 'q', type: 'letter', display: 'q' },
+  { latex: 'r', type: 'letter', display: 'r' },
+  { latex: 's', type: 'letter', display: 's' },
+  { latex: 't', type: 'letter', display: 't' },
+  { latex: 'u', type: 'letter', display: 'u' },
+  { latex: 'v', type: 'letter', display: 'v' },
+  { latex: 'w', type: 'letter', display: 'w' },
+  { latex: 'x', type: 'letter', display: 'x' },
+  { latex: 'y', type: 'letter', display: 'y' },
+  { latex: 'z', type: 'letter', display: 'z' },
+
+  // NEW: Latin Alphabet Uppercase (constants - upright in math)
+  { latex: 'A', type: 'constant', display: 'A' },
+  { latex: 'B', type: 'constant', display: 'B' },
+  { latex: 'C', type: 'constant', display: 'C' },
+  { latex: 'D', type: 'constant', display: 'D' },
+  { latex: 'E', type: 'constant', display: 'E' },
+  { latex: 'F', type: 'constant', display: 'F' },
+  { latex: 'G', type: 'constant', display: 'G' },
+  { latex: 'H', type: 'constant', display: 'H' },
+  { latex: 'I', type: 'constant', display: 'I' },
+  { latex: 'J', type: 'constant', display: 'J' },
+  { latex: 'K', type: 'constant', display: 'K' },
+  { latex: 'L', type: 'constant', display: 'L' },
+  { latex: 'M', type: 'constant', display: 'M' },
+  { latex: 'N', type: 'constant', display: 'N' },
+  { latex: 'O', type: 'constant', display: 'O' },
+  { latex: 'P', type: 'constant', display: 'P' },
+  { latex: 'Q', type: 'constant', display: 'Q' },
+  { latex: 'R', type: 'constant', display: 'R' },
+  { latex: 'S', type: 'constant', display: 'S' },
+  { latex: 'T', type: 'constant', display: 'T' },
+  { latex: 'U', type: 'constant', display: 'U' },
+  { latex: 'V', type: 'constant', display: 'V' },
+  { latex: 'W', type: 'constant', display: 'W' },
+  { latex: 'X', type: 'constant', display: 'X' },
+  { latex: 'Y', type: 'constant', display: 'Y' },
+  { latex: 'Z', type: 'constant', display: 'Z' },
+  
+  // Greek letters (Row 8)
+  { latex: '\\alpha', type: 'greek', display: 'α' },
+  { latex: '\\beta', type: 'greek', display: 'β' },
+  { latex: '\\gamma', type: 'greek', display: 'γ' },
+  { latex: '\\delta', type: 'greek', display: 'δ' },
+  
+  // More Greek (Row 9)
+  { latex: '\\theta', type: 'greek', display: 'θ' },
+  { latex: '\\lambda', type: 'greek', display: 'λ' },
+  { latex: '\\mu', type: 'greek', display: 'μ' },
+  { latex: '\\phi', type: 'greek', display: 'φ' },
+  
+  // Advanced symbols (Row 10)
+  { latex: '\\sum', type: 'advanced', display: '∑' },
+  { latex: '\\int', type: 'advanced', display: '∫' },
+  { latex: '\\lim', type: 'advanced', display: 'lim' },
+  { latex: '\\partial', type: 'operator', display: '∂' },
+  
+  // More advanced (Row 11)
+  { latex: '\\prod', type: 'advanced', display: '∏' },
+  { latex: '\\cup', type: 'operator', display: '∪' },
+  { latex: '\\cap', type: 'operator', display: '∩' },
+  { latex: '\\exists', type: 'logic', display: '∃' },
+  
+  // Matrices/equality (Row 12 - bonus for equations)
+  { latex: '\\begin{pmatrix}', type: 'matrix', display: '[ ]' },
+  { latex: '=', type: 'operator', display: '=' },
+  { latex: '\\approx', type: 'operator', display: '≈' },
+  { latex: '\\neq', type: 'operator', display: '≠' },
+  
+  // Clear/Backspace (Utility - always visible, full-width on mobile)
+  { latex: 'DEL', type: 'utility', display: '⌫' },
+  { latex: 'CLR', type: 'utility', display: 'Clear' }
+];
 
  document.addEventListener('DOMContentLoaded', function() {
   // Initialize MathQuill field
@@ -881,46 +1061,44 @@ header .chip {
     }
   });
 
-  // Mobile detection and enhancements (added code starts here)
+  // Mobile detection and enhancements
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-  // Force focus on touch for mobile (reuse existing mathInput var)
+  // Force focus on touch for mobile
   mathInput.addEventListener('touchstart', function(e) {
     if (isMobile) {
-      e.preventDefault(); // Prevent default zoom/scroll
+      e.preventDefault();
       setTimeout(() => {
-        mathField.focus(); // Delay to ensure keyboard opens
-        // REMOVED: document.getElementById('expr').focus(); // Hidden inputs can't receive input!
+        mathField.focus();
       }, 100);
     }
   }, { passive: false });
 
-  // NEW: Safer mobile re-focus on keypress (helps with Android/iOS input bugs; no internal override)
+  // Safer mobile re-focus on keypress
   if (isMobile) {
     mathInput.addEventListener('keyup', function(e) {
-      // Re-focus after each key to keep cursor/keyboard active
       setTimeout(() => {
         mathField.focus();
       }, 50);
     });
-    console.log('Mobile mode enabled: Keyup listener attached for re-focus.'); // TEMP DEBUG: Check console
+    console.log('Mobile mode enabled: Keyup listener attached for re-focus.');
   }
 
   // Add a mobile hint near the input (optional, for UX)
   const mobileHint = document.createElement('small');
   mobileHint.style.cssText = 'display: block; font-size: 11px; color: var(--muted); margin-top: 4px;';
   mobileHint.style.display = isMobile ? 'block' : 'none';
+  mobileHint.textContent = 'Tap keys to insert math symbols';
   document.querySelector('.math-input-wrapper').appendChild(mobileHint);
-  // Mobile enhancements end here
 
-  // Set initial expression EARLIER (before suggestions/keyboard, to ensure rendering)
+  // Set initial expression
   mathField.latex('x^2');
-  console.log('Initial latex set to x^2'); // TEMP DEBUG: Check console
+  console.log('Initial latex set to x^2');
 
   // Initialize suggestions
   const suggestionContainer = document.getElementById('mathSuggestions');
-  if (suggestionContainer) { // Safety check
-    console.log('Suggestions container found'); // TEMP DEBUG
+  if (suggestionContainer) {
+    console.log('Suggestions container found');
     suggestions.forEach(suggestion => {
       const btn = document.createElement('button');
       btn.className = 'math-suggestion';
@@ -931,34 +1109,62 @@ header .chip {
         mathField.focus();
       };
       suggestionContainer.appendChild(btn);
-      // Render the math in the button
       katex.render(suggestion.latex, btn, { throwOnError: false });
     });
-    console.log('Suggestions initialized'); // TEMP DEBUG
+    console.log('Suggestions initialized');
   } else {
-    console.error('Suggestions container not found!'); // TEMP DEBUG
+    console.error('Suggestions container not found!');
   }
 
-  // Initialize keyboard
+  // FIXED: Initialize keyboard with safe KaTeX rendering
   const keyboard = document.getElementById('mathKeyboard');
-  if (keyboard) { // Safety check
-    console.log('Math keyboard container found'); // TEMP DEBUG
+  if (keyboard) {
     mathKeys.forEach(key => {
       const btn = document.createElement('button');
       btn.className = 'math-key';
-      btn.innerHTML = key.display || `$${key.latex}$`;
-      btn.onclick = () => {
-        mathField.write(key.latex);
-        mathField.focus();
-      };
-      keyboard.appendChild(btn);
-      if (!key.display) {
-        katex.render(key.latex, btn, { throwOnError: false });
+      
+      // Special handling for utility keys
+      if (key.latex === 'DEL') {
+        btn.title = 'Backspace';
+        btn.onclick = () => {
+          mathField.keystroke('Backspace');
+          mathField.focus();
+        };
+        btn.textContent = key.display;
+      } else if (key.latex === 'CLR') {
+        btn.title = 'Clear field';
+        btn.onclick = () => {
+          mathField.latex('');
+          mathField.focus();
+        };
+        btn.textContent = key.display;
+      } else {
+        // Standard insert (uses latex for templates)
+        btn.onclick = () => {
+          mathField.write(key.latex);
+          mathField.focus();
+        };
+        
+        // FIXED: Use key.display for safe preview (math font without errors)
+        const renderStr = key.display;
+        try {
+          btn.innerHTML = '';
+          katex.render(renderStr, btn, { 
+            throwOnError: false, 
+            displayMode: false  // Inline
+          });
+          if (!btn.innerHTML.trim()) {
+            btn.textContent = renderStr;
+          }
+        } catch (e) {
+          btn.textContent = renderStr;
+          console.warn(`KaTeX render failed for key preview "${renderStr}":`, e);
+        }
       }
+      
+      keyboard.appendChild(btn);
     });
-    console.log('Math keyboard initialized'); // TEMP DEBUG
-  } else {
-    console.error('Math keyboard container not found!'); // TEMP DEBUG
+    console.log(`Keyboard initialized with ${mathKeys.length} keys (math font previews).`);
   }
 
   // Toggle keyboard
@@ -966,10 +1172,8 @@ header .chip {
   if (keyboardToggle) {
     keyboardToggle.onclick = () => {
       keyboard.classList.toggle('active');
+      console.log('Keyboard toggled:', keyboard.classList.contains('active') ? 'visible' : 'hidden');  // Debug
     };
-    console.log('Keyboard toggle attached'); // TEMP DEBUG
-  } else {
-    console.error('Keyboard toggle not found!'); // TEMP DEBUG
   }
 
   // Close keyboard when clicking outside
@@ -979,28 +1183,71 @@ header .chip {
     }
   });
 
-  console.log('DOMContentLoaded fully executed'); // TEMP DEBUG: Overall success
+  console.log('DOMContentLoaded fully executed');
 });
-  // Convert LaTeX to math.js expression
-  function latexToMathJS(latex) {
-    return latex
-      .replace(/\\cdot/g, '*')
-      .replace(/\\div/g, '/')
-      .replace(/\\frac{([^}]*)}{([^}]*)}/g, '($1)/($2)')
-      .replace(/\\sqrt{([^}]*)}/g, 'sqrt($1)')
-      .replace(/([0-9a-zA-Z_.]+)\^{([^}]*)}/g, '$1^($2)')
-      .replace(/([0-9a-zA-Z_.]+)\^(\S)/g, '$1^$2')
-      .replace(/\\sin/g, 'sin')
-      .replace(/\\cos/g, 'cos')
-      .replace(/\\tan/g, 'tan')
-      .replace(/\\ln/g, 'log')
-      .replace(/\\pi/g, 'pi')
-      .replace(/\\left|\\right/g, '')
-      .replace(/\{|\}/g, '')
-      .trim();
-  }
+  
+  // Enhanced LaTeX to math.js converter
+function latexToMathJS(latex) {
+  let expr = latex
+    // Basic operators
+    .replace(/\\cdot|\\times/g, '*')
+    .replace(/\\div/g, '/')
+    .replace(/\\frac{([^}]*?)}{([^}]*?)}/g, '($1)/($2)')
+    .replace(/\\sqrt(?:\[[^}]+\])?{([^}]*)}/g, 'sqrt($1)')
+    .replace(/([a-zA-Z0-9_.]+)\^{([^}]*)}/g, '$1^($2)')
+    .replace(/([a-zA-Z0-9_.]+)_([^}]*)/g, '$1_$2')
+    
+    // Trig and hyperbolic functions
+    .replace(/\\sin/g, 'sin')
+    .replace(/\\cos/g, 'cos')
+    .replace(/\\tan/g, 'tan')
+    .replace(/\\csc/g, 'csc')
+    .replace(/\\sinh/g, 'sinh')
+    .replace(/\\cosh/g, 'cosh')
+    .replace(/\\tanh/g, 'tanh')
+    
+    // Logs and exp
+    .replace(/\\ln/g, 'log')
+    .replace(/\\log/g, 'log')
+    .replace(/\\exp/g, 'exp')
+    
+    // Constants
+    .replace(/\\pi/g, 'pi')
+    .replace(/\\infty/g, 'Infinity')
+    
+    // Greek letters
+    .replace(/\\alpha/g, 'alpha')
+    .replace(/\\beta/g, 'beta')
+    .replace(/\\gamma/g, 'gamma')
+    .replace(/\\delta/g, 'delta')
+    .replace(/\\theta/g, 'theta')
+    .replace(/\\lambda/g, 'lambda')
+    .replace(/\\mu/g, 'mu')
+    .replace(/\\phi/g, 'phi')
+    
+    // Advanced symbols
+    .replace(/\\sum/g, 'sum')
+    .replace(/\\int/g, 'int')
+    .replace(/\\lim/g, 'lim')
+    .replace(/\\partial/g, 'partial')
+    .replace(/\\prod/g, 'prod')
+    .replace(/\\cup/g, 'cup')
+    .replace(/\\cap/g, 'cap')
+    .replace(/\\exists/g, 'exists')
+    .replace(/\\approx/g, '~')
+    .replace(/\\neq/g, '!=')
+    
+    // Remove braces and extras
+    .replace(/\\left|\\right/g, '')
+    .replace(/\{|\}/g, '()')
+    .trim();
+  
+  expr = expr.replace(/\\begin\{pmatrix\}/g, '[').replace(/\\end\{pmatrix\}/g, ']');
+  
+  return expr;
+}
 
-  // Utility: parse a value with math.js (supports constants like pi, sqrt(2), etc.)
+  // Utility: parse a value with math.js
   function parseValue(str) {
     if (!str || !String(str).trim()) throw new Error("Value is empty.");
     const node = math.parse(str);
@@ -1025,7 +1272,7 @@ function compileFunction(expr, variable='x') {
   };
 }
 
-// Adaptive Simpson integration (provided; refined with domain guards)
+// Adaptive Simpson integration
 function integrateAdaptiveSimpson(f, a, b, opts = {}) {
   const absTol = opts.absTol ?? 1e-10;
   const relTol = opts.relTol ?? 1e-10;
@@ -1058,7 +1305,6 @@ const err = Math.abs(S12 - Sab);
 const tol = 15 * Math.max(absTol, relTol * Math.abs(S12));
 
   if (err <= tol || depth >= maxDepth) {
-    // Richardson correction
     return S12 + (S12 - Sab) / 15;
   }
   return recurse(a, fa, lm, flm, m, fm, Sa, depth + 1)
@@ -1068,12 +1314,10 @@ const tol = 15 * Math.max(absTol, relTol * Math.abs(S12));
   return recurse(a, fa, m, fm, b, fb, Sab, 0);
 }
 
-// Numeric derivative at x0 with adaptive step control
+// Numeric derivative at x0
 function derivativeNumeric(f, x0) {
   if (!isFinite(x0)) throw new Error("x0 must be finite.");
-  // Base step size scaled by magnitude of x0
   let h = Math.max(1e-5, Math.abs(x0) * 1e-5);
-  // Central difference with Richardson extrapolation
   function df(h) {
     const f1 = f(x0 + h);
     const f2 = f(x0 - h);
@@ -1081,12 +1325,11 @@ function derivativeNumeric(f, x0) {
   }
   const d1 = df(h);
   const d2 = df(h / 2);
-  // Extrapolate: O(h^2) error -> combine
   const rich = (4 * d2 - d1) / 3;
   return rich;
 }
 
-// Numeric limit of f(x) at x0 using symmetric sampling and robustness
+// Numeric limit of f(x) at x0
 function limitNumeric(f, x0) {
   if (!isFinite(x0)) throw new Error("x0 must be finite.");
   let h = Math.max(1e-5, Math.abs(x0) * 1e-5);
@@ -1099,7 +1342,6 @@ function limitNumeric(f, x0) {
     samples.push(0.5 * (left + right));
   }
   if (!samples.length) throw new Error("Could not sample finite values near x0.");
-  // Robust aggregate (trimmed mean)
   samples.sort((a,b)=>a-b);
   const trimmed = samples.slice(1, samples.length - 1);
   const arr = trimmed.length ? trimmed : samples;
@@ -1114,12 +1356,12 @@ function renderLatex(el, latex) {
     displayMode: true,
     trust: true,
     macros: {
-      "\\derivative": "\\frac{d}{d#1}",  // Custom macro for derivative
+      "\\derivative": "\\frac{d}{d#1}",
     },
     strict: false,
-    linebreaks: false,  // Disable automatic line breaks
-    maxSize: '100%',    // Limit render size to container
-    wrap: false         // Prevent wrapping
+    linebreaks: false,
+    maxSize: '100%',
+    wrap: false
   });
 }
 
@@ -1156,21 +1398,18 @@ const f = compileFunction(expr, variable);
       const y = f(x0);
 
       try {
-        // Get the function in proper LaTeX
         const node = math.parse(expr);
         const functionLatex = node.toTex({
           parenthesis: 'keep',
           implicit: 'hide'
         });
 
-        // Parse x0 to get its LaTeX representation
         const x0Node = math.parse(x0Str);
         const x0Latex = x0Node.toTex({
           parenthesis: 'keep',
           implicit: 'hide'
         });
 
-        // Format the complete result with proper alignment
         const resultLatex = `\\begin{aligned}
           f(${variable}) &= ${functionLatex} \\\\[6pt]
           ${variable}_0 &= ${x0Latex} \\\\[6pt]
@@ -1179,28 +1418,23 @@ const f = compileFunction(expr, variable);
         
         renderLatex(resultEl, resultLatex);
       } catch (err) {
-        // Fallback to simple format if parsing fails
         renderLatex(resultEl, `f(${variable}) = ${expr},\\quad f(${x0Str}) = ${fmtNumber(y)}`);
       }
     } else if (op === 'differentiateSymbolic') {
       try {
-        // Get the original function in LaTeX
         const originalNode = math.parse(expr);
         const originalLatex = originalNode.toTex({
           parenthesis: 'keep',
           implicit: 'hide'
         });
 
-        // Get the derivative
         const dnode = math.derivative(expr, variable);
         
-        // Convert derivative to LaTeX
         const derivativeLatex = dnode.toTex({
           parenthesis: 'keep',
           implicit: 'hide'
         });
 
-        // Format the complete result with proper spacing and alignment
         const resultLatex = `f(${variable}) = ${originalLatex}\\\\[8pt]
         \\frac{d}{d${variable}}f(${variable}) = ${derivativeLatex}`;
         
@@ -1251,7 +1485,6 @@ document.getElementById('plotBtn').addEventListener('click', () => {
       xmin = parseValue(parts[0]);
       xmax = parseValue(parts[1]);
     } else {
-      // fallback from integral interval if provided
       const intervalStr = document.getElementById('interval').value.trim();
       if (intervalStr) {
         const parts = intervalStr.split(',').map(s => s.trim());
@@ -1285,12 +1518,9 @@ document.getElementById('plotBtn').addEventListener('click', () => {
       yaxis: { gridcolor: 'rgba(255,255,255,0.08)', zerolinecolor: 'rgba(255,255,255,0.18)', color: '#cdd3e0' }
     }, { displayModeBar: true, responsive: true });
 
-    // Create a nicer formatted result with proper math formatting
     let resultLatex = `f(${variable}) = `;
     
-    // Convert the expression to proper LaTeX
     try {
-      // Parse with math.js and convert to LaTeX
       const node = math.parse(expr);
       const latex = node.toTex({
         parenthesis: 'keep',
@@ -1298,11 +1528,9 @@ document.getElementById('plotBtn').addEventListener('click', () => {
       });
       resultLatex += latex;
     } catch {
-      // Fallback if math.js can't parse it
       resultLatex += `\\text{${expr}}`;
     }
 
-    // Add the domain information
     resultLatex += `,\\quad x \\in [${fmtNumber(xmin)}, ${fmtNumber(xmax)}]`;
     
     renderLatex(resultEl, resultLatex);
