@@ -1087,39 +1087,15 @@ header .chip {
   // Mobile detection and enhancements
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
- // Force focus on touch for mobile (enhanced to better suppress keyboard)
-mathInput.addEventListener('touchstart', function(e) {
-  if (isMobile) {
-    e.preventDefault();
-    setTimeout(() => {
-      mathField.focus();
-    }, 200);  // Increased timeout for better suppression
-  }
-}, { passive: false });
-
-mathInput.addEventListener('touchend', function(e) {
-  if (isMobile) {
-    e.preventDefault();  // Prevent any lingering focus/keyboard trigger
-  }
-}, { passive: false });
-
-// Prevent system keyboard on mobile by blurring and refocusing internally
-mathInput.addEventListener('focus', function(e) {
-  if (isMobile) {
-    this.blur();  // Immediately blur to cancel keyboard popup
-    setTimeout(() => {
-      mathField.focus();  // Refocus via MathQuill (no keyboard trigger)
-    }, 150);
-  }
-}, true);  // Capture phase: Catch focus early before it propagates
-
-// Ensure hidden input doesn't trigger keyboard
-const hiddenInput = document.getElementById('expr');
-if (isMobile) {
-  hiddenInput.addEventListener('focus', function(e) {
-    this.blur();  // Blur immediately if somehow focused
-  }, true);
-}
+  // Force focus on touch for mobile
+  mathInput.addEventListener('touchstart', function(e) {
+    if (isMobile) {
+      e.preventDefault();
+      setTimeout(() => {
+        mathField.focus();
+      }, 100);
+    }
+  }, { passive: false });
 
   // Safer mobile re-focus on keypress
   if (isMobile) {

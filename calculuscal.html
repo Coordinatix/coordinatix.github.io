@@ -16,8 +16,7 @@
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
   <!-- Math.js for parsing and symbolic derivative -->
   <script src="https://cdn.jsdelivr.net/npm/mathjs@12.4.1/lib/browser/math.js"></script>
-  <!-- Plotly for graphing -->
-  <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+  <!-- REMOVED: Plotly script - replaced with Canvas graphing -->
 
   <style>
     :root {
@@ -679,19 +678,27 @@ header .chip {
   display: grid;
   gap: 16px;
 }
+/* UPDATED: Plot styles for Canvas */
 .plot {
   width: 100%;
   height: 360px;
   border-radius: 16px;
   overflow: hidden;
   border: 1px solid var(--border);
-  background: linear-gradient(180deg, var(--glass), rgba(255,255,255,0.03));
+  background: var(--bg0);  /* FIXED: Solid bg to prevent trails */
   transition: all 0.3s ease;
   box-shadow: inset 0 0 0 1px var(--glass);
+  position: relative;
 }
 .plot:hover {
   border-color: var(--glass2);
   box-shadow: var(--shadow-sm), inset 0 0 0 1px var(--glass2);
+}
+.plot canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: var(--bg0);  /* FIXED: Ensure canvas bg is solid */
 }
 
 .footer {
@@ -803,6 +810,64 @@ header .chip {
     .mq-editable-field:not(.mq-empty)::after {
       content: none; /* Hide when not empty */
     }
+    /* FIX: Prevent KaTeX aligned overlap in multi-line results */
+.result .out .katex-display {
+  display: block !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  margin: 0.5em 0 !important;  /* Add breathing room vertically */
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.result .out .katex-display .katex {
+  display: block !important;
+  white-space: normal !important;
+  overflow: visible !important;
+}
+
+/* Ensure individual aligned lines don't nowrap internally */
+.result .out .katex-display .mrow,
+.result .out .katex-display .katex-mathml {
+  white-space: normal !important;
+  display: inline-block !important;
+  max-width: 100% !important;
+  overflow-wrap: break-word !important;
+  word-break: break-word !important;  /* Break long unbreakable math spans if needed */
+}
+
+/* Vertical spacing boost for aligned lines */
+.result .out .katex-display span[style*="line-height"] {
+  line-height: 1.4 !important;  /* Slightly looser than default 1.2 for better separation */
+}
+.card.panel .status-chip {
+  position: absolute;
+  top: 24px; /* Align with card's content top (original padding) */
+  right: 16px;
+  z-index: 5; /* Ensures it floats above content */
+  display: inline-flex; /* Keep it compact, like a badge */
+  align-items: center; /* Vertically center the words */
+  gap: 8px; /* Space between "Status" and "Ready" */
+  width: fit-content; /* Prevent any unwanted width expansion */
+  margin: 0; /* Reset any flex margins */
+  transform: translateY(-50%); /* NEW: Vertical center to match h2 baseline */
+  padding: 6px 12px; /* Balanced padding */
+  font-size: 12px; /* Match header size */
+}
+
+/* Ensure the card has relative positioning for absolute child */
+.card.panel {
+  position: relative; /* Allows absolute positioning of children */
+  padding: 24px; /* Ensure full original padding (no overrides) */
+}
+
+/* Reset h2 for clean alignment */
+.card.panel > h2 {
+  margin-top: 0; /* No extra push-down */
+  margin-bottom: 12px; /* Original spacing below */
+  padding-top: 0; /* Rely on card padding */
+  line-height: 1.2; /* Consistent baseline for alignment */
+}
   </style>
 </head>
 <body>
@@ -819,15 +884,15 @@ header .chip {
       <p class="tagline">Differentiate, integrate, evaluate limits, and visualize functions.</p>
     </div>
   </div>
-  <div class="chip">
-    <small>Status</small>
-    <span class="ok">Ready</span>
-  </div>
 </header>
 
 <main class="container">
   <section class="card panel">
     <h2>Problem Setup</h2>
+    <div class="status-chip">
+    <small>Status</small>
+    <span class="ok">Ready</span>
+  </div>
     <div>
       <label for="expr">Function f(x)</label>
       <div class="math-input-wrapper">
@@ -885,7 +950,9 @@ header .chip {
 
   <section class="card">
     <h2>Visualization</h2>
-    <div id="plot" class="plot"></div>
+    <div id="plot" class="plot">
+      <!-- Canvas will be inserted here dynamically -->
+    </div>
     <div class="grid2" style="margin-top:12px;">
       <div>
         <label for="samples">Plot samples</label>
@@ -901,10 +968,601 @@ header .chip {
 
 <div class="footer">
   <div>Supports standard math functions: sin, cos, tan, exp, log, sqrt, abs, floor, ceil, etc.</div>
-  <div>Symbolic by math.js; numeric by adaptive Simpson and robust finite differences.</div>
+  <div>Symbolic by math.js; numeric by adaptive Simpson and robust finite differences. Plotting by Canvas.</div>
 </div>
 
 <script>
+  // UPDATED: Graph2D Class (integrated from provided code, adapted for single function and math.js)
+  class Graph2D {
+    constructor(canvas, options = {}) {
+      this.canvas = canvas;
+      this.ctx = canvas.getContext('2d');
+      this.dpr = window.devicePixelRatio || 1;
+
+     this.style = {
+  bg: options.bg || '#0B1020',
+  gridMajor: options.gridMajor || 'rgba(255,255,255,0.18)',
+  gridMinor: options.gridMinor || 'rgba(255,255,255,0.08)',
+  axis: options.axis || 'rgba(255,255,255,0.6)',
+  axisArrow: options.axisArrow || 'rgba(255,255,255,0.8)',
+  tick: options.tick || 'rgba(255,255,255,0.4)',
+  text: options.text || 'rgba(255,255,255,0.9)',  // Keep for axes/ticks (light)
+  crosshair: options.crosshair || 'rgba(255,255,255,0.25)',
+  tooltipBg: options.tooltipBg || 'rgba(255,255,255,0.9)',
+  tooltipBorder: options.tooltipBorder || 'rgba(0,0,0,0.15)',
+  tooltipText: options.tooltipText || '#111111',  // NEW: Dark text for tooltip contrast
+  legendText: options.legendText || '#111111'
+      
+        };
+      
+
+      this.originX = options.originX ?? 0;
+      this.originY = options.originY ?? 0;
+      this.scaleX = options.scaleX ?? 60;
+      this.scaleY = options.scaleY ?? 60;
+      this.minScale = options.minScale ?? 10;
+      this.maxScale = options.maxScale ?? 1000;
+      this.isDragging = false;
+      this.dragStart = { sx: 0, sy: 0, ox: 0, oy: 0 };
+      this.mouse = { sx: 0, sy: 0, x: 0, y: 0, inside: false };
+      this.inertia = { vx: 0, vy: 0, active: false };
+      this.zoomFactorPerWheel = options.zoomFactorPerWheel ?? 1.08;
+      this.enableInertia = options.enableInertia ?? true;
+      this.series = [];
+      this.legend = { show: true, position: 'top-right' };
+      this.tooltip = { show: true, padding: 8, font: '12px sans-serif' };
+      this.needsRedraw = true;
+      this.anim = null;
+
+      this.resizeObserver = new ResizeObserver(() => this.resize());
+      this.resizeObserver.observe(this.canvas);
+      this.attachEvents();
+      this.loop();
+    }
+
+    // ... (rest of Graph2D methods unchanged from provided code)
+    worldToScreen(x, y) {
+      return {
+        sx: (x - this.originX) * this.scaleX,
+        sy: (this.originY - y) * this.scaleY
+      };
+    }
+
+    screenToWorld(sx, sy) {
+      return {
+        x: sx / this.scaleX + this.originX,
+        y: this.originY - sy / this.scaleY
+      };
+    }
+
+    addFunction(fn, options = {}) {
+      const s = {
+        type: 'function',
+        fn,
+        color: options.color || '#00D4FF',  // Default to accent2
+        width: options.width || 2,
+        sampleStep: options.sampleStep || 2,
+        name: options.name || 'f(x)'
+      };
+      this.series.push(s);
+      this.requestRedraw();
+      return s;
+    }
+
+    clearSeries() {
+      this.series = [];
+      this.requestRedraw();
+    }
+
+    resize() {
+      const rect = this.canvas.getBoundingClientRect();
+      this.canvas.width = Math.round(rect.width * this.dpr);
+      this.canvas.height = Math.round(rect.height * this.dpr);
+      this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+      this.requestRedraw();
+    }
+
+    attachEvents() {
+      const c = this.canvas;
+      c.addEventListener('mousedown', (e) => {
+        this.isDragging = true;
+        this.inertia.active = false;
+        const rect = c.getBoundingClientRect();
+        const sx = e.clientX - rect.left;
+        const sy = e.clientY - rect.top;
+        this.dragStart = { sx, sy, ox: this.originX, oy: this.originY };
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        const rect = c.getBoundingClientRect();
+        const sx = e.clientX - rect.left;
+        const sy = e.clientY - rect.top;
+        this.mouse.sx = sx;
+        this.mouse.sy = sy;
+        const w = this.screenToWorld(sx, sy);
+        this.mouse.x = w.x;
+        this.mouse.y = w.y;
+        this.mouse.inside =
+          e.clientX >= rect.left &&
+          e.clientX <= rect.right &&
+          e.clientY >= rect.top &&
+          e.clientY <= rect.bottom;
+
+        if (this.isDragging) {
+          const dx = sx - this.dragStart.sx;
+          const dy = sy - this.dragStart.sy;
+          const prevOriginX = this.originX;
+          const prevOriginY = this.originY;
+          this.originX = this.dragStart.ox - dx / this.scaleX;
+          this.originY = this.dragStart.oy + dy / this.scaleY;
+          this.inertia.vx = (this.originX - prevOriginX);
+          this.inertia.vy = (this.originY - prevOriginY);
+          this.requestRedraw();
+        }
+      });
+
+      window.addEventListener('mouseup', () => {
+        if (this.isDragging && this.enableInertia) {
+          this.inertia.active = true;
+        }
+        this.isDragging = false;
+      });
+
+      c.addEventListener('mouseleave', () => {
+        this.mouse.inside = false;
+        this.requestRedraw();
+      });
+
+      c.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const rect = c.getBoundingClientRect();
+        const sx = e.clientX - rect.left;
+        const sy = e.clientY - rect.top;
+        const { x: wx, y: wy } = this.screenToWorld(sx, sy);
+        const dir = Math.sign(e.deltaY);
+        const factor = Math.pow(this.zoomFactorPerWheel, dir);
+        const newScaleX = this.clamp(this.scaleX / factor, this.minScale, this.maxScale);
+        const newScaleY = this.clamp(this.scaleY / factor, this.minScale, this.maxScale);
+        this.originX = wx - sx / newScaleX;
+        this.originY = wy + sy / newScaleY;
+        this.scaleX = newScaleX;
+        this.scaleY = newScaleY;
+        this.inertia.active = false;
+        this.requestRedraw();
+      }, { passive: false });
+
+      c.addEventListener('dblclick', () => {
+        this.resetView();
+      });
+
+       c.addEventListener('touchstart', (e) => {
+        if (e.touches.length > 1) return; // Ignore multi-touch for now
+        e.preventDefault();
+        const touch = e.changedTouches[0];
+        const rect = c.getBoundingClientRect();
+        const sx = touch.clientX - rect.left;
+        const sy = touch.clientY - rect.top;
+        this.isDragging = true;
+        this.inertia.active = false;
+        this.dragStart = { sx, sy, ox: this.originX, oy: this.originY };
+      }, { passive: false });
+
+      window.addEventListener('touchmove', (e) => {
+        if (!this.isDragging || e.touches.length > 1) return;
+        e.preventDefault();
+        const touch = e.changedTouches[0];
+        const rect = c.getBoundingClientRect();
+        const sx = touch.clientX - rect.left;
+        const sy = touch.clientY - rect.top;
+        this.mouse.sx = sx;
+        this.mouse.sy = sy;
+        const w = this.screenToWorld(sx, sy);
+        this.mouse.x = w.x;
+        this.mouse.y = w.y;
+        this.mouse.inside =
+          touch.clientX >= rect.left &&
+          touch.clientX <= rect.right &&
+          touch.clientY >= rect.top &&
+          touch.clientY <= rect.bottom;
+
+        if (this.isDragging) {
+          const dx = sx - this.dragStart.sx;
+          const dy = sy - this.dragStart.sy;
+          const prevOriginX = this.originX;
+          const prevOriginY = this.originY;
+          this.originX = this.dragStart.ox - dx / this.scaleX;
+          this.originY = this.dragStart.oy + dy / this.scaleY;
+          this.inertia.vx = (this.originX - prevOriginX);
+          this.inertia.vy = (this.originY - prevOriginY);
+          this.requestRedraw();
+        }
+      }, { passive: false });
+
+      window.addEventListener('touchend', (e) => {
+        if (this.isDragging && this.enableInertia) {
+          this.inertia.active = true;
+        }
+        this.isDragging = false;
+        this.mouse.inside = false;
+        this.requestRedraw();
+      }, { passive: false });
+
+      // Optional: Handle touch cancel (e.g., if user switches apps)
+      window.addEventListener('touchcancel', (e) => {
+        this.isDragging = false;
+        this.inertia.active = false;
+        this.mouse.inside = false;
+      }, { passive: false });
+    }
+
+   resetView() {
+  this.originX = 0;
+  this.originY = 0;
+  this.scaleX = 60;
+  this.scaleY = 60;
+  this.inertia.active = false;
+  // NEW: Re-center (0,0) after reset
+  setTimeout(() => {  // After potential resize
+    const rect = this.canvas.getBoundingClientRect();
+    const w = rect.width;
+    const h = rect.height;
+    this.originX = - (w / 2) / this.scaleX;
+    this.originY = (h / 2) / this.scaleY;
+    this.requestRedraw();
+  }, 0);
+}
+
+    clamp(v, a, b) {
+      return Math.max(a, Math.min(b, v));
+    }
+
+    requestRedraw() {
+      this.needsRedraw = true;
+    }
+
+    loop() {
+      const tick = () => {
+        if (this.inertia.active && !this.isDragging) {
+          this.originX += this.inertia.vx;
+          this.originY += this.inertia.vy;
+          this.inertia.vx *= 0.9;
+          this.inertia.vy *= 0.9;
+          if (Math.abs(this.inertia.vx) < 1e-4 && Math.abs(this.inertia.vy) < 1e-4) {
+            this.inertia.active = false;
+          }
+          this.needsRedraw = true;
+        }
+
+        if (this.needsRedraw) {
+          this.render();
+          this.needsRedraw = false;
+        }
+        this.anim = requestAnimationFrame(tick);
+      };
+      this.anim = requestAnimationFrame(tick);
+    }
+
+    niceStep(pixelTarget = 80, scalePxPerUnit = 60) {
+      const raw = pixelTarget / scalePxPerUnit;
+      const pow10 = Math.pow(10, Math.floor(Math.log10(raw)));
+      const candidates = [1, 2, 5].map(m => m * pow10);
+      let best = candidates[0];
+      let bd = Math.abs(candidates[0] - raw);
+      for (let i = 1; i < candidates.length; i++) {
+        const d = Math.abs(candidates[i] - raw);
+        if (d < bd) { bd = d; best = candidates[i]; }
+      }
+      return best;
+    }
+
+    render() {
+      const ctx = this.ctx;
+      const w = this.canvas.clientWidth;
+      const h = this.canvas.clientHeight;
+
+      ctx.save();
+      ctx.fillStyle = this.style.bg;
+      ctx.fillRect(0, 0, w, h);  // FIXED: This now uses opaque bg, no trails
+
+      this.drawGrid(w, h);
+      this.drawAxes(w, h);
+
+      for (const s of this.series) {
+        if (s.type === 'function') this.drawFunctionSeries(s, w, h);
+      }
+
+      if (this.legend.show && this.series.some(s => s.name)) this.drawLegend(w, h);
+      if (this.mouse.inside) {
+        this.drawCrosshair(w, h);
+        if (this.tooltip.show) this.drawTooltip();
+      }
+
+      ctx.restore();
+    }
+
+    drawGrid(w, h) {
+      const ctx = this.ctx;
+      const xStep = this.niceStep(80, this.scaleX);
+      const yStep = this.niceStep(80, this.scaleY);
+      const xMinor = xStep / 2;
+      const yMinor = yStep / 2;
+      const xMin = this.screenToWorld(0, 0).x;
+      const xMax = this.screenToWorld(w, 0).x;
+      const yMin = this.screenToWorld(0, h).y;
+      const yMax = this.screenToWorld(0, 0).y;
+
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = this.style.gridMinor;
+
+      let xStartMinor = Math.floor(xMin / xMinor) * xMinor;
+      for (let x = xStartMinor; x <= xMax; x += xMinor) {
+        if (Math.abs(x) < 1e-9) continue;
+        const { sx } = this.worldToScreen(x, 0);
+        ctx.beginPath();
+        ctx.moveTo(sx, 0);
+        ctx.lineTo(sx, h);
+        ctx.stroke();
+      }
+
+      let yStartMinor = Math.floor(yMin / yMinor) * yMinor;
+      for (let y = yStartMinor; y <= yMax; y += yMinor) {
+        if (Math.abs(y) < 1e-9) continue;
+        const { sy } = this.worldToScreen(0, y);
+        ctx.beginPath();
+        ctx.moveTo(0, sy);
+        ctx.lineTo(w, sy);
+        ctx.stroke();
+      }
+
+      ctx.strokeStyle = this.style.gridMajor;
+      let xStart = Math.floor(xMin / xStep) * xStep;
+      for (let x = xStart; x <= xMax; x += xStep) {
+        if (Math.abs(x) < 1e-9) continue;
+        const { sx } = this.worldToScreen(x, 0);
+        ctx.beginPath();
+        ctx.moveTo(sx, 0);
+        ctx.lineTo(sx, h);
+        ctx.stroke();
+
+        const label = this.formatTick(x);
+        ctx.fillStyle = this.style.text;
+        ctx.font = '12px sans-serif';
+        ctx.textAlign = 'center';
+        const axisY = this.worldToScreen(0, 0).sy;
+        const labelY = axisY < h - 18 ? (axisY > 5 ? axisY + 10 : 5) : h - 18;
+        ctx.textBaseline = 'top';
+        ctx.fillText(label, sx, labelY);
+      }
+
+      let yStart = Math.floor(yMin / yStep) * yStep;
+      for (let y = yStart; y <= yMax; y += yStep) {
+        if (Math.abs(y) < 1e-9) continue;
+        const { sy } = this.worldToScreen(0, y);
+        ctx.beginPath();
+        ctx.moveTo(0, sy);
+        ctx.lineTo(w, sy);
+        ctx.stroke();
+
+        const label = this.formatTick(y);
+        ctx.fillStyle = this.style.text;
+        ctx.font = '12px sans-serif';
+        const axisX = this.worldToScreen(0, 0).sx;
+        const labelX = axisX > 40 ? (axisX < w - 5 ? axisX - 10 : w - 5) : 40;
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, labelX, sy);
+      }
+    }
+
+    formatTick(v) {
+      if (v === 0) return '0';
+      const mag = Math.max(Math.abs(v), 1e-12);
+      const logScale = Math.log10(Math.max(this.scaleX, this.scaleY));
+      let precision = logScale > 2 ? 3 : logScale > 1 ? 2 : logScale > 0 ? 1 : 0;
+
+      if (mag >= 1e5 || mag < 1e-4) {
+        return v.toExponential(1);
+      }
+      if (Math.abs(v - Math.round(v)) < 1e-6) {
+        return Math.round(v).toString();
+      }
+      if (Math.abs(v * 10 - Math.round(v * 10)) < 1e-6) {
+        return (Math.round(v * 10) / 10).toFixed(1);
+      }
+      return v.toFixed(precision);
+    }
+
+    drawAxes(w, h) {
+      const ctx = this.ctx;
+      ctx.strokeStyle = this.style.axis;
+      ctx.lineWidth = 1.5;
+
+      const y0 = this.worldToScreen(0, 0).sy;
+      ctx.beginPath();
+      ctx.moveTo(0, y0);
+      ctx.lineTo(w, y0);
+      ctx.stroke();
+
+      const x0 = this.worldToScreen(0, 0).sx;
+      ctx.beginPath();
+      ctx.moveTo(x0, 0);
+      ctx.lineTo(x0, h);
+      ctx.stroke();
+
+      ctx.fillStyle = this.style.axisArrow;
+      if (w - 12 > 0) this.drawArrow(w - 12, y0, w, y0);
+      if (12 < h) this.drawArrow(x0, 12, x0, 0);
+
+      ctx.fillStyle = this.style.text;
+      ctx.font = '13px sans-serif';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'bottom';
+      const xLabelY = Math.min(h - 8, Math.max(15, y0 - 6));
+      ctx.fillText('X', w - 8, xLabelY);
+
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      const yLabelX = Math.min(w - 15, Math.max(6, x0 + 6));
+      ctx.fillText('Y', yLabelX, 6);
+    }
+
+    drawArrow(x1, y1, x2, y2) {
+      const ctx = this.ctx;
+      const angle = Math.atan2(y2 - y1, x2 - x1);
+      const len = 10;
+      ctx.beginPath();
+      ctx.moveTo(x2, y2);
+      ctx.lineTo(x2 - len * Math.cos(angle - Math.PI / 6),
+                 y2 - len * Math.sin(angle - Math.PI / 6));
+      ctx.lineTo(x2 - len * Math.cos(angle + Math.PI / 6),
+                 y2 - len * Math.sin(angle + Math.PI / 6));
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    drawFunctionSeries(s, w, h) {
+      const ctx = this.ctx;
+      ctx.strokeStyle = s.color;
+      ctx.lineWidth = s.width;
+      ctx.beginPath();
+
+      let started = false;
+      let prevSy;
+
+      for (let sx = 0; sx <= w; sx += s.sampleStep) {
+        const { x } = this.screenToWorld(sx, 0);
+        let y;
+        try {
+          y = s.fn(x);
+          if (!isFinite(y)) {
+            started = false;
+            continue;
+          }
+        } catch {
+          started = false;
+          continue;
+        }
+        const { sy } = this.worldToScreen(0, y);
+
+        if (sy < -h || sy > 2 * h) {
+          if (started && prevSy !== undefined && (prevSy < -h || prevSy > 2 * h || Math.abs(sy - prevSy) > h * 2)) {
+            started = false;
+          } else if (!started) {
+            prevSy = sy;
+            continue;
+          }
+        }
+
+        if (!started) {
+          ctx.moveTo(sx, sy);
+          started = true;
+        } else {
+          ctx.lineTo(sx, sy);
+        }
+        prevSy = sy;
+      }
+      ctx.stroke();
+    }
+
+    drawLegend(w, h) {
+      const ctx = this.ctx;
+      const padding = 10;
+      const lineLen = 18;
+      const rowH = 22;
+      let x = w - 160, y = 15;
+
+      ctx.font = '14px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+
+      const namedSeries = this.series.filter(s => s.name);
+      if (namedSeries.length === 0) return;
+
+      let maxTextWidth = 0;
+      for (const s of namedSeries) {
+        maxTextWidth = Math.max(maxTextWidth, ctx.measureText(s.name).width);
+      }
+
+      const boxW = maxTextWidth + lineLen + padding * 2 + 8;
+      const boxH = padding * 2 + namedSeries.length * rowH;
+
+      x = Math.max(padding, w - boxW - padding);
+      y = Math.max(padding, padding);
+
+      ctx.fillStyle = this.style.tooltipBg;
+      ctx.strokeStyle = this.style.tooltipBorder;
+      ctx.beginPath();
+      ctx.roundRect(x - padding, y - padding, boxW, boxH, 8);
+      ctx.fill();
+      ctx.stroke();
+
+      let yy = y;
+      for (const s of namedSeries) {
+        ctx.strokeStyle = s.color;
+        ctx.lineWidth = s.width;
+        ctx.beginPath();
+        ctx.moveTo(x, yy);
+        ctx.lineTo(x + lineLen, yy);
+        ctx.stroke();
+
+        ctx.fillStyle = this.style.legendText;
+        ctx.fillText(s.name, x + lineLen + 8, yy);
+        yy += rowH;
+      }
+    }
+
+    drawCrosshair(w, h) {
+      const ctx = this.ctx;
+      const sx = this.mouse.sx;
+      const sy = this.mouse.sy;
+      ctx.strokeStyle = this.style.crosshair;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(sx, 0);
+      ctx.lineTo(sx, h);
+      ctx.moveTo(0, sy);
+      ctx.lineTo(w, sy);
+      ctx.stroke();
+    }
+
+    drawTooltip() {
+      const ctx = this.ctx;
+      const { sx, sy, x, y } = this.mouse;
+      const text = `(${this.formatTick(x)}, ${this.formatTick(y)})`;
+
+      ctx.font = this.tooltip.font;
+      const metrics = ctx.measureText(text);
+      const padding = this.tooltip.padding;
+      const tw = metrics.width + padding * 2;
+      const th = 20 + padding * 2;
+      let bx = sx + 12, by = sy + 12;
+
+      const cw = this.canvas.clientWidth, ch = this.canvas.clientHeight;
+      if (bx + tw + 8 > cw) bx = cw - tw - 8;
+      if (by + th + 8 > ch) by = ch - th - 8;
+      if (bx < 8) bx = 8;
+      if (by < 8) by = 8;
+
+      ctx.fillStyle = this.style.tooltipBg;
+      ctx.strokeStyle = this.style.tooltipBorder;
+      ctx.beginPath();
+      ctx.roundRect(bx, by, tw, th, 5);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = this.style.tooltipText;  // NEW: Use dark tooltip text
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, bx + padding, by + th / 2);
+    }
+
+    // NEW: Destroy method for cleanup
+    destroy() {
+      this.resizeObserver.disconnect();
+      if (this.anim) cancelAnimationFrame(this.anim);
+    }
+  }
+
   // Initialize MathQuill
   var MQ = MathQuill.getInterface(2);
   var mathField;
@@ -915,7 +1573,6 @@ header .chip {
     { latex: '\\sqrt{x}', title: 'Square root' },
     { latex: 'e^x', title: 'Exponential' },
     { latex: '\\sin(x)', title: 'Sine' },
-    { latex: '\\cos(x)', title: 'Cosine' },
     
     // NEW: Utility buttons for user convenience
   { latex: 'DEL', display: '⌫', title: 'Backspace' },
@@ -951,10 +1608,10 @@ header .chip {
   { latex: '\\infty', type: 'constant', display: '∞' },
   
   // Trig functions (Row 5)
-  { latex: '\\sin{}', type: 'function', display: 'sin' },
-  { latex: '\\cos{}', type: 'function', display: 'cos' },
-  { latex: '\\tan{}', type: 'function', display: 'tan' },
-  { latex: '\\csc{}', type: 'function', display: 'csc' },
+  { latex: '\\sin{(}', type: 'function', display: 'sin' },
+  { latex: '\\cos{(}', type: 'function', display: 'cos' },
+  { latex: '\\tan{x}', type: 'function', display: 'tan' },
+  { latex: '\\csc{x}', type: 'function', display: 'csc' },
   
   // Hyperbolic (Row 6)
   { latex: '\\sinh', type: 'function', display: 'sinh' },
@@ -1129,6 +1786,18 @@ header .chip {
   // NEW: Special rendering for utilities (if display exists)
   if (suggestion.display) {
     btn.textContent = suggestion.display;  // Use plain text/emoji (no KaTeX)
+  } else {
+    // Original: Math suggestions
+    btn.innerHTML = `$${suggestion.latex}$`;
+    katex.render(suggestion.latex, btn, { throwOnError: false });
+  }
+
+    // NEW: Enhanced rendering for utilities with PNG
+  if (suggestion.latex === 'CLR') {
+    // Use PNG icon for Clear button
+    btn.innerHTML = '<img src="images/svg.svg" alt="Clear field" style="width: 18px; height: 18px; vertical-align: middle;">';
+  } else if (suggestion.display) {
+    btn.textContent = suggestion.display;  // Fallback for other utilities like DEL
   } else {
     // Original: Math suggestions
     btn.innerHTML = `$${suggestion.latex}$`;
@@ -1401,6 +2070,22 @@ function renderLatex(el, latex) {
     maxSize: '100%',
     wrap: false
   });
+  // NEW: Post-render style fix for aligned overlap
+const displaySpan = el.querySelector('.katex-display');
+if (displaySpan) {
+  displaySpan.style.cssText = `
+    display: block !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  `;
+  const mathRows = displaySpan.querySelectorAll('.mrow');
+  mathRows.forEach(row => {
+    row.style.whiteSpace = 'normal';
+    row.style.overflowWrap = 'break-word';
+  });
+}
 }
 
 // Format number
@@ -1429,36 +2114,59 @@ document.getElementById('computeBtn').addEventListener('click', () => {
 
 if (!expr) throw new Error("Enter a function expression.");
 const f = compileFunction(expr, variable);
+const originalLatex = mathField.latex();
 
-    if (op === 'evaluate') {
-      if (!x0Str) throw new Error("Enter x0 for evaluation.");
-      const x0 = parseValue(x0Str);
-      const y = f(x0);
+   if (op === 'evaluate') {
+  if (!x0Str) throw new Error("Enter x0 for evaluation.");
+  const x0 = parseValue(x0Str);
+  const y = f(x0);
 
-      try {
-        const node = math.parse(expr);
-        const functionLatex = node.toTex({
-          parenthesis: 'keep',
-          implicit: 'hide'
-        });
+  let functionLatex;
+  try {
+    const node = math.parse(expr);
+    functionLatex = node.toTex({
+      parenthesis: 'keep',
+      implicit: 'hide'
+    });
+  } catch (texErr) {
+    console.warn('toTex failed for function; using original LaTeX:', texErr);
+    functionLatex = originalLatex;  // Safe KaTeX-compatible fallback
+  }
 
-        const x0Node = math.parse(x0Str);
-        const x0Latex = x0Node.toTex({
-          parenthesis: 'keep',
-          implicit: 'hide'
-        });
+  // x0Latex is safe here since parseValue(x0Str) already succeeded
+  const x0Node = math.parse(x0Str);
+  const x0Latex = x0Node.toTex({
+    parenthesis: 'keep',
+    implicit: 'hide'
+  });
 
-        const resultLatex = `\\begin{aligned}
-          f(${variable}) &= ${functionLatex} \\\\[6pt]
-          ${variable}_0 &= ${x0Latex} \\\\[6pt]
-          f(${x0Latex}) &= ${fmtNumber(y)}
-        \\end{aligned}`;
-        
-        renderLatex(resultEl, resultLatex);
-      } catch (err) {
-        renderLatex(resultEl, `f(${variable}) = ${expr},\\quad f(${x0Str}) = ${fmtNumber(y)}`);
-      }
-    } else if (op === 'differentiateSymbolic') {
+  // NEW: Render as three stacked single-line display blocks (no aligned)
+  resultEl.innerHTML = '';  // Clear
+
+  // Line 1: f(var) = function
+  const line1Latex = `f(${variable}) = ${functionLatex}`;
+  const line1Div = document.createElement('div');
+  line1Div.style.marginBottom = '12pt';  // Spacing like \\[12pt]
+  renderLatex(line1Div, line1Latex);
+  resultEl.appendChild(line1Div);
+
+  // Line 2: var_0 = x0
+  const line2Latex = `${variable}_0 = ${x0Latex}`;
+  const line2Div = document.createElement('div');
+  line2Div.style.marginBottom = '12pt';
+  renderLatex(line2Div, line2Latex);
+  resultEl.appendChild(line2Div);
+
+  // Line 3: f(x0) = y
+  const line3Latex = `f(${x0Latex}) = ${fmtNumber(y)}`;
+  const line3Div = document.createElement('div');
+  renderLatex(line3Div, line3Latex);
+  resultEl.appendChild(line3Div);
+
+  // Optional: Align = signs roughly with CSS (if desired, but not needed for no-overlap)
+  // resultEl.style.textAlign = 'left';  // Or 'center' for centered stack
+
+} else if (op === 'differentiateSymbolic') {
       try {
         const originalNode = math.parse(expr);
         const originalLatex = originalNode.toTex({
@@ -1492,17 +2200,15 @@ const f = compileFunction(expr, variable);
       const a = parseValue(parts[0]);
       const b = parseValue(parts[1]);
       const I = integrateAdaptiveSimpson(f, a, b, { absTol: 1e-10, relTol: 1e-10, maxDepth: 20 });
-      renderLatex(resultEl, `\\int_{${fmtNumber(a)}}^{${fmtNumber(b)}} f(${variable})\\, d${variable} \\approx ${fmtNumber(I)}`);
+      renderLatex(resultEl, `\\int_{${fmtNumber(a)}}^{${fmtNumber(b)}} f(${variable})\\, dx \\approx ${fmtNumber(I)}`);
     } else if (op === 'limit') {
       if (!x0Str) throw new Error("Enter x0 for limit.");
       const x0 = parseValue(x0Str);
       const L = limitNumeric(f, x0);
-      renderLatex(resultEl, `\\lim_{${variable}\\to ${fmtNumber(x0)}} f(${variable}) \\approx ${fmtNumber(L)}`);
-    } else {
-      throw new Error("Unknown operation.");
+      renderLatex(resultEl, `\\lim_{${variable} \\to ${fmtNumber(x0)}} f(${variable}) \\approx ${fmtNumber(L)}`);
     }
   } catch (err) {
-    errorEl.textContent = err.message || String(err);
+    errorEl.textContent = err.message;
   }
 });
 
@@ -1511,74 +2217,83 @@ document.getElementById('plotBtn').addEventListener('click', () => {
   errorEl.textContent = '';
   try {
     const expr = document.getElementById('expr').value.trim();
-    const variable = document.getElementById('variable').value.trim() || 'x';
-    const domainStr = document.getElementById('domain').value.trim();
-    const samples = Number(document.getElementById('samples').value) || 400;
     if (!expr) throw new Error("Enter a function expression.");
+    const variable = document.getElementById('variable').value.trim() || 'x';
     const f = compileFunction(expr, variable);
-    let xmin = -5, xmax = 5;
-    if (domainStr) {
-      const parts = domainStr.split(',').map(s => s.trim());
-      if (parts.length !== 2) throw new Error("Domain must be two comma-separated values.");
-      xmin = parseValue(parts[0]);
-      xmax = parseValue(parts[1]);
+
+    const plotEl = document.getElementById('plot');
+    let canvas = plotEl.querySelector('canvas');
+    if (!canvas) {
+      canvas = document.createElement('canvas');
+      plotEl.appendChild(canvas);
+    }
+
+    // Initialize graph if not already
+    if (!canvas.graph) {
+      canvas.graph = new Graph2D(canvas, {
+        bg: '#0B1020',
+        gridMajor: 'rgba(255,255,255,0.18)',
+        gridMinor: 'rgba(255,255,255,0.08)',
+        axis: 'rgba(255,255,255,0.6)',
+        axisArrow: 'rgba(255,255,255,0.8)',
+        tick: 'rgba(255,255,255,0.4)',
+        text: 'rgba(255,255,255,0.9)',
+        crosshair: 'rgba(255,255,255,0.25)',
+        tooltipBg: 'rgba(255,255,255,0.9)',
+        tooltipBorder: 'rgba(0,0,0,0.15)',
+        tooltipText: '#111111',
+        legendText: '#111111'
+      });
     } else {
-      const intervalStr = document.getElementById('interval').value.trim();
-      if (intervalStr) {
-        const parts = intervalStr.split(',').map(s => s.trim());
-        if (parts.length === 2) {
-          xmin = parseValue(parts[0]);
-          xmax = parseValue(parts[1]);
-        }
+      canvas.graph.clearSeries();
+    }
+
+    // Parse domain or fallback to interval or default
+    let xmin = -5, xmax = 5;
+    const domainStr = document.getElementById('domain').value.trim();
+    const intervalStr = document.getElementById('interval').value.trim();
+    let useStr = domainStr || intervalStr;
+    if (useStr) {
+      const parts = useStr.split(',').map(s => s.trim());
+      if (parts.length === 2) {
+        xmin = parseValue(parts[0]);
+        xmax = parseValue(parts[1]);
       }
     }
-    if (!(isFinite(xmin) && isFinite(xmax)) || xmin === xmax) throw new Error("Invalid domain.");
-    const x = [];
-    const y = [];
-    const N = Math.max(50, Math.min(2000, samples));
-    for (let i = 0; i < N; i++) {
-      const xi = xmin + (xmax - xmin) * (i / (N - 1));
-      let yi;
-      try { yi = f(xi); }
-      catch { yi = NaN; }
-      x.push(xi);
-      y.push(isFinite(yi) ? yi : NaN);
-    }
-    Plotly.newPlot('plot', [{
-      x, y, type: 'scatter', mode: 'lines',
-      line: { color: '#00D4FF', width: 2 },
-      hovertemplate: 'x=%{x:.6f}<br>f=%{y:.6f}<extra></extra>'
-    }], {
-      paper_bgcolor: 'rgba(0,0,0,0)',
-      plot_bgcolor: 'rgba(0,0,0,0)',
-      margin: { l: 40, r: 20, t: 10, b: 40 },
-      xaxis: { gridcolor: 'rgba(255,255,255,0.08)', zerolinecolor: 'rgba(255,255,255,0.18)', color: '#cdd3e0' },
-      yaxis: { gridcolor: 'rgba(255,255,255,0.08)', zerolinecolor: 'rgba(255,255,255,0.18)', color: '#cdd3e0' }
-    }, { displayModeBar: true, responsive: true });
 
-    let resultLatex = `f(${variable}) = `;
-    
-    try {
-      const node = math.parse(expr);
-      const latex = node.toTex({
-        parenthesis: 'keep',
-        implicit: 'hide'
-      });
-      resultLatex += latex;
-    } catch {
-      resultLatex += `\\text{${expr}}`;
-    }
+    // Compute sample step based on canvas width and desired samples
+    const rect = canvas.getBoundingClientRect();
+    const w = rect.width;
+    const samples = parseInt(document.getElementById('samples').value) || 400;
+    const step = Math.max(1, w / samples);
 
-    resultLatex += `,\\quad x \\in [${fmtNumber(xmin)}, ${fmtNumber(xmax)}]`;
+    // Add function
+    canvas.graph.addFunction(f, {
+      sampleStep: step,
+      color: '#00D4FF'
+    });
+
+    // NEW: Hide the legend (erases f(x) text and chip/box)
+     canvas.graph.legend.show = false;
+
+    // Display function in result section
+     const originalLatex = mathField.latex();
+     renderLatex(resultEl, `f(${variable}) = ${originalLatex}`);
+
     
-    renderLatex(resultEl, resultLatex);
+
+    // NEW: Center (0,0) at screen middle (all quadrants visible, no clip)
+    const h = rect.height;  // Reuse rect for height
+    canvas.graph.originX = - (w / 2) / canvas.graph.scaleX;  // Shift x-origin left for center
+    canvas.graph.originY = (h / 2) / canvas.graph.scaleY;    // Shift y-origin down for center (inverts for positive-up)
+    canvas.graph.requestRedraw();
+
+    // No custom adjust—use defaults for symmetric centering around (0,0)
+
   } catch (err) {
-    errorEl.textContent = err.message || String(err);
+    errorEl.textContent = err.message;
   }
 });
-
-    // Initialize
-    renderLatex(resultEl, "Enter an expression and choose an operation.");
-  </script>
+</script>
 </body>
 </html>
