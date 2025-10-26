@@ -1,0 +1,2198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Calculus Lab — Integrate, Differentiate, Limits</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.gstatic.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <!-- MathQuill dependencies -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.js"></script>
+  <!-- KaTeX for math rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <!-- Math.js for parsing and symbolic derivative -->
+  <script src="https://cdn.jsdelivr.net/npm/mathjs@12.4.1/lib/browser/math.js"></script>
+  <!-- REMOVED: Plotly script - replaced with Canvas graphing -->
+
+  <style>
+    :root {
+      --bg0: #0B1020;
+      --bg1: #0E1530;
+      --bg2: #162042;
+      --glass: rgba(255, 255, 255, 0.08);
+      --glass2: rgba(255, 255, 255, 0.12);
+      --border: rgba(255, 255, 255, 0.18);
+      --text: #e6e9f0;
+      --muted: #9ba3b0;
+      --accent: #7C5CFF;
+      --accent2: #00D4FF;
+      --danger: #ff5c7c;
+      --success: #33d69f;
+      --shadow: 0 30px 60px rgba(0,0,0,0.35);
+      --shadow-sm: 0 8px 24px rgba(0,0,0,0.25);
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
+      color: var(--text);
+      background: radial-gradient(1200px 600px at 15% 0%, #0f1c44 0%, var(--bg1) 40%, var(--bg0) 100%),
+                  conic-gradient(from 220deg at 80% 30%, #0f1b36, #0b1020);
+      overflow-x: hidden;
+    }
+    .aurora {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      filter: blur(60px);
+      opacity: 0.35;
+      z-index: -1;
+    }
+    .blob {
+      position: absolute;
+      width: 40vw; height: 40vw;
+      background: radial-gradient(circle at 30% 30%, rgba(124,92,255,0.25), transparent 60%);
+      border-radius: 50%;
+      transform: translate(-10%, -10%);
+      animation: float 18s infinite ease-in-out;
+    }
+    .blob2 {
+      position: absolute;
+      width: 45vw; height: 45vw;
+      background: radial-gradient(circle at 70% 50%, rgba(0,212,255,0.25), transparent 70%);
+      border-radius: 50%;
+      right: -10%; bottom: -15%;
+      animation: float 24s infinite ease-in-out reverse;
+    }
+    @keyframes float {
+      0%, 100% { transform: translate(0, 0); }
+      25% { transform: translate(2%, 2%); }
+      50% { transform: translate(-1%, 3%); }
+      75% { transform: translate(1%, -2%); }
+    }header {
+  max-width: 1100px;
+  margin: 40px auto 20px;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  position: relative;
+}
+
+header > .chip {
+  width: max-content;
+  flex: 0 0 auto;
+}
+.brand {
+  display: flex; align-items: center; gap: 16px;
+  position: relative;
+  flex: 1;
+}
+.logo {
+  width: 48px; height: 48px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border-radius: 14px;
+  box-shadow: 0 10px 28px rgba(124, 92, 255, 0.35), 
+              inset 0 0 24px rgba(255,255,255,0.25);
+  position: relative;
+  transition: transform 0.3s ease;
+  flex-shrink: 0;
+}
+.logo:hover {
+  transform: translateY(-2px) scale(1.02);
+}
+.logo::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border-radius: inherit;
+  opacity: 0.5;
+  filter: blur(8px);
+  z-index: -1;
+}
+.brand h1 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  background: linear-gradient(135deg, #fff 30%, #b4c5ff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.tagline {
+  color: var(--muted);
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+header .chip {
+  flex: 0 0 auto;
+  width: max-content;
+  padding: 6px 10px;
+}
+
+.container {
+  max-width: 1100px;
+  margin: 12px auto 80px;
+  padding: 24px;
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 28px;
+}
+
+.card {
+  background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.04));
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+  backdrop-filter: saturate(130%) blur(12px);
+  padding: 24px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  /* FIXED: Removed overflow: hidden; to prevent clipping the keyboard */
+}
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow), 0 0 0 1px var(--glass2);
+}
+.card h2 {
+  margin: 0 0 12px;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+label {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+input[type="text"], input[type="number"], select {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.06);
+  color: var(--text);
+  outline: none;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+/* MathQuill Styling */
+.mq-editable-field {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  color: var(--text) !important;
+  font-size: 16px !important;
+}
+/*Soham couldn't see the cursor so I updated the cursor color */
+.mq-cursor {
+  background-color: #ffffff !important; /* white cursor for MathQuill */
+  border-left: 1px solid #ffffff !important; 
+  height: 1em !important; 
+}
+
+/* New rule: Apply to all text inputs for consistency */
+input[type="text"],
+input[type="number"],
+select,
+.mq-editable-field {
+  caret-color: #ffffff !important; /* White caret for regular inputs and MathQuill fallback */
+}
+
+.math-input-wrapper {
+  position: relative;
+  padding: 12px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.06);
+  margin-bottom: 8px;
+  transition: all 0.2s ease;
+}
+
+.math-input-wrapper:hover {
+  border-color: var(--glass2);
+  background: rgba(255,255,255,0.08);
+}
+
+.math-input-wrapper:focus-within {
+  border-color: var(--accent);
+  background: rgba(255,255,255,0.08);
+  box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.15);
+}
+/* Improve mobile tap target */
+.math-input-wrapper {
+  min-height: 50px; /* Larger touch area */
+  display: flex;
+  align-items: center;
+}
+
+@media (max-width: 768px) {
+  .math-input-wrapper {
+    padding: 16px; /* More padding for fat-finger typing */
+  }
+}
+
+.mq-math-mode {
+  color: var(--text) !important;
+}
+
+.mq-math-mode .mq-sup {
+  position: relative;
+  top: -0.5em;
+  font-size: 0.85em;
+}
+
+.mq-math-mode .mq-sub {
+  position: relative;
+  bottom: -0.4em;
+  font-size: 0.85em;
+}
+
+.math-suggestions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  padding: 0 4px;
+}
+
+.math-suggestion {
+  background: var(--glass);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 8px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--text);
+}
+
+.math-suggestion:hover {
+  background: var(--glass2);
+  border-color: var(--accent);
+}
+.math-suggestion[title="Backspace"],
+.math-suggestion[title="Clear field"] {
+  background: rgba(255, 92, 124, 0.1);  
+  border-color: rgba(242, 8, 54, 0.838);
+}
+.math-suggestion[title="Backspace"]:hover,
+.math-suggestion[title="Clear field"]:hover {
+  background: rgba(255, 92, 125, 0.61);
+  border-color: var(--danger);
+}
+
+.math-keyboard-toggle {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--glass);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center; 
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--text);
+}
+
+.math-keyboard-toggle:hover {
+  background: var(--glass2);
+  border-color: var(--accent);
+}
+
+.math-keyboard {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px;
+  display: grid;
+  grid-template-rows: repeat(5, 1fr); /* FIXED: Fixed 5 rows */
+  grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); /* FIXED: Auto-columns for horizontal scroll */
+  grid-auto-flow: column; /* FIXED: Fill columns first (no extra rows) */
+  grid-auto-rows: 1fr; /* FIXED: Even rows */
+  justify-content: start; /* FIXED: Left-align */
+  gap: 8px;
+  z-index: 10;
+  box-shadow: var(--shadow);
+  display: none; /* Hidden by default */
+  height: calc(5 * 32px + 4 * 8px + 24px); /* FIXED: Height for 5 rows */
+  overflow-x: auto; /* FIXED: Horizontal scroll */
+  overflow-y: hidden; /* FIXED: No vertical */
+  scrollbar-width: none; /* Hide scrollbar - Firefox */
+  -ms-overflow-style: none; /* Hide scrollbar - IE/Edge */
+  -webkit-overflow-scrolling: touch; /* Smooth touch scroll on iOS */
+}
+
+.math-keyboard::-webkit-scrollbar {
+  display: none; /* Hide scrollbar - WebKit/Chrome/Safari */
+}
+
+.math-keyboard.active {
+  display: grid;
+}
+
+.math-key {
+  background: var(--glass);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--text);
+  min-height: 32px; /* Base size */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px; /* Readable */
+  line-height: 1.2;  /* NEW: Tighter for math glyphs */
+  vertical-align: middle;  /* NEW: Center math */
+}
+
+.math-key:hover {
+  background: var(--glass2);
+  border-color: var(--accent);
+  transform: scale(1.05); /* Subtle feedback */
+}
+
+/* NEW: Style for KaTeX in keys */
+.math-key .katex {
+  font-size: 14px !important;
+  line-height: 1 !important;
+  display: inline-block !important;
+  vertical-align: middle;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Mobile: Larger keys for fat-finger typing; visible still ~4 cols */
+@media (max-width: 768px) {
+  .math-key {
+    min-height: 48px; /* Bigger touch targets */
+    font-size: 16px;
+    padding: 12px;
+  }
+  .math-keyboard {
+    height: calc(5 * 48px + 4 * 8px + 32px); /* Height for 5 rows on mobile */
+    grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); /* FIXED: Auto with wider min */
+    padding: 16px; /* More space */
+  }
+  .math-key .katex {
+    font-size: 16px !important;  /* Larger for readability */
+  }
+  /* Toggle button remains unchanged */
+}
+
+/* Utility keys: Span columns appropriately; adjust for horizontal layout */
+.math-key[title="DEL"], .math-key[title="CLR"] {
+  grid-column: span 2; /* Wider on desktop (spans 2 of auto-cols) */
+  background: var(--danger); /* Red for delete */
+  color: white;
+}
+
+@media (max-width: 768px) {
+  .math-key[title="DEL"], .math-key[title="CLR"] {
+    grid-column: span 4; /* Wider on mobile */
+  }
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.06);
+  color: var(--text);
+  outline: none;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  width: max-content;
+}
+
+.chip {
+  width: auto;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.06);
+  color: var(--text);
+  outline: none;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+/* Enhanced select styles */
+select {
+  background-color: var(--bg2);
+  font-weight: 500;
+  position: relative;
+  z-index: 1;
+}
+input::placeholder { 
+  color: rgba(173, 180, 194, 0.4);
+  transition: color 0.2s ease;
+}
+input:hover::placeholder {
+  color: rgba(173, 180, 194, 0.5);
+}
+input:focus::placeholder {
+  color: rgba(173, 180, 194, 0.6);
+}
+input:hover, select:hover {
+  border-color: var(--glass2);
+  background: rgba(255,255,255,0.08);
+}
+input:focus, select:focus {
+  border-color: var(--accent);
+  background: rgba(255,255,255,0.08);
+  box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.15);
+}
+select { 
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L6 6L11 1' stroke='%239ba3b0' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 16px center;
+  padding-right: 40px;
+  cursor: pointer;
+}
+select option {
+  background-color: #162042;
+  color: var(--text);
+  padding: 12px;
+  font-size: 14px;
+}
+/* Style for Firefox */
+select:-moz-focusring {
+  color: transparent;
+  text-shadow: 0 0 0 var(--text);
+}
+/* Style for Webkit browsers */
+select::-ms-expand {
+  display: none;
+}
+select:focus option:checked {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: #504e4e9e;
+}
+.row { display: flex; gap: 14px; }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(180deg, var(--glass), rgba(255,255,255,0.05));
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px dashed rgba(255,255,255,0.25);
+  font-size: 13px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  width: fit-content;
+}
+.chip:hover {
+  border-color: rgba(255,255,255,0.35);
+  background: linear-gradient(180deg, var(--glass2), rgba(255,255,255,0.06));
+}
+.chip small { 
+  color: var(--muted);
+  font-weight: 500;
+}
+header .chip {
+  flex-shrink: 0;
+  margin-left: auto;
+  transform-origin: right center;
+  padding: 6px 10px;
+  font-size: 12px;
+  min-width: 0;
+  width: auto;
+}
+
+.actions { 
+  display: flex; 
+  align-items: center;
+  margin: 20px 0;
+  flex-direction: row;
+  justify-content: space-between;
+  width: 100%;
+  gap: clamp(8px, 2vw, 14px);
+  flex-wrap: wrap;
+}
+.actions .chip {
+  flex: 0 0 auto;
+  width: max-content;
+  min-width: min-content;
+}
+.btn {
+  flex: 1 1 0;
+  min-width: min(140px, 45%);
+  cursor: pointer;
+  border: none;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  padding: clamp(10px, 2.5vw, 14px) clamp(16px, 3vw, 24px);
+  transition: all 0.2s ease;
+  position: relative;
+  border-radius: clamp(10px, 2vw, 14px);
+  font-size: clamp(13px, 2vw, 14px);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: #10121a;
+  box-shadow: 0 10px 24px rgba(0,212,255,0.25);
+}
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 28px rgba(0,212,255,0.35);
+}
+.btn-ghost {
+  background: var(--glass);
+  color: var(--text);
+}
+.btn-ghost:hover {
+  background: var(--glass2);
+}
+.btn:active { 
+  transform: translateY(1px);
+  box-shadow: 0 8px 20px rgba(0,212,255,0.2);
+}
+
+.result {
+  margin-top: 16px;
+  padding: 16px 20px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, var(--glass), rgba(255,255,255,0.04));
+  border: 1px solid var(--border);
+  min-height: 56px;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden; /* Clip any overflow from .out */
+  max-width: 100%; /* Prevent card expansion */
+  box-sizing: border-box;
+}
+.result:hover {
+  transform: translateY(-1px);
+  border-color: var(--glass2);
+  box-shadow: var(--shadow-sm);
+}
+.result .title {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 10px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.result .title::before {
+  content: "•";
+  color: var(--accent);
+  font-size: 18px;
+  line-height: 1;
+}
+.result .out {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.5;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  max-width: 100%; /* Constrain to parent width */
+  white-space: nowrap; /* Prevent wrapping; force horizontal scroll for long math */
+  display: block; /* Ensure it's a scrollable block */
+}
+.result .out::-webkit-scrollbar {
+  height: 4px;
+}
+.result .out::-webkit-scrollbar-track {
+  background: rgba(255,255,255,0.05);
+  border-radius: 2px;
+}
+.result .out::-webkit-scrollbar-thumb {
+  background: var(--glass2);
+  border-radius: 2px;
+}
+.error {
+  color: var(--danger);
+  font-size: 13px;
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: rgba(255, 92, 124, 0.1);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.error::before {
+  content: "!";
+  font-weight: bold;
+  color: currentColor;
+}
+.ok { 
+  color: var(--success);
+  position: relative;
+}
+.ok::after {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  background: currentColor;
+  border-radius: 50%;
+  margin-left: 6px;
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.5); opacity: 0.5; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.panel {
+  display: grid;
+  gap: 16px;
+}
+/* UPDATED: Plot styles for Canvas */
+.plot {
+  width: 100%;
+  height: 360px;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--bg0);  /* FIXED: Solid bg to prevent trails */
+  transition: all 0.3s ease;
+  box-shadow: inset 0 0 0 1px var(--glass);
+  position: relative;
+}
+.plot:hover {
+  border-color: var(--glass2);
+  box-shadow: var(--shadow-sm), inset 0 0 0 1px var(--glass2);
+}
+.plot canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: var(--bg0);  /* FIXED: Ensure canvas bg is solid */
+}
+
+.footer {
+  max-width: 1100px;
+  margin: 12px auto;
+  padding: 0 24px;
+  color: var(--muted);
+  font-size: 12px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+
+    @media (min-width: 981px) {
+      header .chip {
+        transform: scale(0.9);
+      }
+    }
+
+    @media (min-width: 1200px) {
+      header .chip {
+        transform: scale(0.85);
+      }
+    }
+
+    @media (max-width: 980px) {
+      .container { 
+        grid-template-columns: 1fr;
+        padding: 16px;
+      }
+      header { 
+        flex-direction: column; 
+        align-items: flex-start; 
+        gap: 16px;
+        margin: 24px auto 16px;
+        padding: 0 16px;
+      }
+      header .chip {
+        margin-left: 0;
+        align-self: flex-start;
+      }
+      .card {
+        padding: 20px;
+      }
+      .grid2 {
+        grid-template-columns: 1fr;
+      }
+      .plot {
+        height: 280px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .actions {
+        gap: 10px;
+      }
+      .actions .btn {
+        flex: 1 1 100%;
+        width: 100%;
+        min-width: 100%;
+      }
+      .actions .chip {
+        order: -1;
+        width: 100%;
+        justify-content: center;
+      }
+    }
+
+    @media (min-width: 481px) and (max-width: 768px) {
+      .actions .btn {
+        min-width: calc(50% - 7px);
+      }
+    }
+
+    /* Smooth scrolling and touch handling */
+    @media (hover: hover) and (pointer: fine) {
+      html {
+        scroll-behavior: smooth;
+      }
+    }
+
+    /* High contrast mode */
+    @media (prefers-contrast: more) {
+      :root {
+        --border: rgba(255,255,255,0.25);
+        --glass: rgba(255,255,255,0.12);
+        --glass2: rgba(255,255,255,0.16);
+      }
+      .mq-cursor {
+  background-color: #f3f6f3 !important; /* Bright green cursor */
+}
+    }
+
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+      * {
+        animation: none !important;
+        transition: none !important;
+      }
+    }
+    .mq-editable-field.mq-empty::after {
+      content: 'e.g. x^2 + sin(x)';
+      color: var(--muted) !important;
+      font-style: italic;
+      pointer-events: none;
+      position: absolute;
+      left: 0;
+      top: 0;
+      opacity: 0.6;
+    }
+    .mq-editable-field:not(.mq-empty)::after {
+      content: none; /* Hide when not empty */
+    }
+    /* FIX: Prevent KaTeX aligned overlap in multi-line results */
+.result .out .katex-display {
+  display: block !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  margin: 0.5em 0 !important;  /* Add breathing room vertically */
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.result .out .katex-display .katex {
+  display: block !important;
+  white-space: normal !important;
+  overflow: visible !important;
+}
+
+/* Ensure individual aligned lines don't nowrap internally */
+.result .out .katex-display .mrow,
+.result .out .katex-display .katex-mathml {
+  white-space: normal !important;
+  display: inline-block !important;
+  max-width: 100% !important;
+  overflow-wrap: break-word !important;
+  word-break: break-word !important;  /* Break long unbreakable math spans if needed */
+}
+
+/* Vertical spacing boost for aligned lines */
+.result .out .katex-display span[style*="line-height"] {
+  line-height: 1.4 !important;  /* Slightly looser than default 1.2 for better separation */
+}
+  </style>
+</head>
+<body>
+  <div class="aurora">
+    <div class="blob"></div>
+    <div class="blob2"></div>
+  </div>
+
+<header>
+  <div class="brand">
+    <div class="logo" aria-hidden="true"></div>
+    <div>
+      <h1>Calculex</h1>
+      <p class="tagline">Differentiate, integrate, evaluate limits, and visualize functions.</p>
+    </div>
+  </div>
+  <div class="chip">
+    <small>Status</small>
+    <span class="ok">Ready</span>
+  </div>
+</header>
+
+<main class="container">
+  <section class="card panel">
+    <h2>Problem Setup</h2>
+    <div>
+      <label for="expr">Function f(x)</label>
+      <div class="math-input-wrapper">
+        <span id="math-input"></span>
+        <button class="math-keyboard-toggle" id="keyboardToggle">⌨</button>
+        <input type="hidden" id="expr" />
+        <div class="math-keyboard" id="mathKeyboard">
+          <!-- Will be populated by JavaScript -->
+        </div>
+      </div>
+      <div class="math-suggestions" id="mathSuggestions">
+        <!-- Will be populated by JavaScript -->
+      </div>
+    </div>
+    <div class="grid2">
+      <div>
+        <label for="variable">Variable</label>
+        <input id="variable" type="text" value="x" />
+      </div>
+      <div>
+        <label for="op">Operation</label>
+        <select id="op">
+          <option value="evaluate">Evaluate f(x0)</option>
+          <option value="differentiateSymbolic">Derivative (symbolic)</option>
+          <option value="differentiateNumeric">Derivative at x0 (numeric)</option>
+          <option value="integrateDefinite">Definite integral ∫ f dx from a to b</option>
+          <option value="limit">Limit of f(x) at x0</option>
+        </select>
+      </div>
+    </div>
+
+<div class="grid2">
+  <div>
+    <label for="x0">x0 (for evaluate/limit/derivative at point)</label>
+    <input id="x0" type="text" placeholder="e.g. 0, pi/3, sqrt(2)" />
+  </div>
+  <div>
+    <label for="interval">Interval [a, b] (for integral / plot)</label>
+    <input id="interval" type="text" placeholder="e.g. -2, 2" />
+  </div>
+</div>
+
+<div class="actions">
+  <button class="btn btn-primary" id="computeBtn">Compute</button>
+  <button class="btn btn-ghost" id="plotBtn">Plot f(x)</button>
+  <div class="chip"><small>Tolerance</small><span id="tolChip">1e-10</span></div>
+</div>
+
+  <div class="result">
+    <div class="title">Result</div>
+    <div class="out" id="resultLatex"></div>
+    <div class="error" id="errorMsg"></div>
+  </div>
+</section>
+
+  <section class="card">
+    <h2>Visualization</h2>
+    <div id="plot" class="plot">
+      <!-- Canvas will be inserted here dynamically -->
+    </div>
+    <div class="grid2" style="margin-top:12px;">
+      <div>
+        <label for="samples">Plot samples</label>
+        <input id="samples" type="number" min="50" max="2000" value="400" />
+      </div>
+      <div>
+        <label for="domain">Plot domain [xmin, xmax]</label>
+        <input id="domain" type="text" placeholder="e.g. -5, 5" />
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="footer">
+  <div>Supports standard math functions: sin, cos, tan, exp, log, sqrt, abs, floor, ceil, etc.</div>
+  <div>Symbolic by math.js; numeric by adaptive Simpson and robust finite differences. Plotting by Canvas.</div>
+</div>
+
+<script>
+  // UPDATED: Graph2D Class (integrated from provided code, adapted for single function and math.js)
+  class Graph2D {
+    constructor(canvas, options = {}) {
+      this.canvas = canvas;
+      this.ctx = canvas.getContext('2d');
+      this.dpr = window.devicePixelRatio || 1;
+
+     this.style = {
+  bg: options.bg || '#0B1020',
+  gridMajor: options.gridMajor || 'rgba(255,255,255,0.18)',
+  gridMinor: options.gridMinor || 'rgba(255,255,255,0.08)',
+  axis: options.axis || 'rgba(255,255,255,0.6)',
+  axisArrow: options.axisArrow || 'rgba(255,255,255,0.8)',
+  tick: options.tick || 'rgba(255,255,255,0.4)',
+  text: options.text || 'rgba(255,255,255,0.9)',  // Keep for axes/ticks (light)
+  crosshair: options.crosshair || 'rgba(255,255,255,0.25)',
+  tooltipBg: options.tooltipBg || 'rgba(255,255,255,0.9)',
+  tooltipBorder: options.tooltipBorder || 'rgba(0,0,0,0.15)',
+  tooltipText: options.tooltipText || '#111111',  // NEW: Dark text for tooltip contrast
+  legendText: options.legendText || '#111111'
+      
+        };
+      
+
+      this.originX = options.originX ?? 0;
+      this.originY = options.originY ?? 0;
+      this.scaleX = options.scaleX ?? 60;
+      this.scaleY = options.scaleY ?? 60;
+      this.minScale = options.minScale ?? 10;
+      this.maxScale = options.maxScale ?? 1000;
+      this.isDragging = false;
+      this.dragStart = { sx: 0, sy: 0, ox: 0, oy: 0 };
+      this.mouse = { sx: 0, sy: 0, x: 0, y: 0, inside: false };
+      this.inertia = { vx: 0, vy: 0, active: false };
+      this.zoomFactorPerWheel = options.zoomFactorPerWheel ?? 1.08;
+      this.enableInertia = options.enableInertia ?? true;
+      this.series = [];
+      this.legend = { show: true, position: 'top-right' };
+      this.tooltip = { show: true, padding: 8, font: '12px sans-serif' };
+      this.needsRedraw = true;
+      this.anim = null;
+
+      this.resizeObserver = new ResizeObserver(() => this.resize());
+      this.resizeObserver.observe(this.canvas);
+      this.attachEvents();
+      this.loop();
+    }
+
+    // ... (rest of Graph2D methods unchanged from provided code)
+    worldToScreen(x, y) {
+      return {
+        sx: (x - this.originX) * this.scaleX,
+        sy: (this.originY - y) * this.scaleY
+      };
+    }
+
+    screenToWorld(sx, sy) {
+      return {
+        x: sx / this.scaleX + this.originX,
+        y: this.originY - sy / this.scaleY
+      };
+    }
+
+    addFunction(fn, options = {}) {
+      const s = {
+        type: 'function',
+        fn,
+        color: options.color || '#00D4FF',  // Default to accent2
+        width: options.width || 2,
+        sampleStep: options.sampleStep || 2,
+        name: options.name || 'f(x)'
+      };
+      this.series.push(s);
+      this.requestRedraw();
+      return s;
+    }
+
+    clearSeries() {
+      this.series = [];
+      this.requestRedraw();
+    }
+
+    resize() {
+      const rect = this.canvas.getBoundingClientRect();
+      this.canvas.width = Math.round(rect.width * this.dpr);
+      this.canvas.height = Math.round(rect.height * this.dpr);
+      this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+      this.requestRedraw();
+    }
+
+    attachEvents() {
+      const c = this.canvas;
+      c.addEventListener('mousedown', (e) => {
+        this.isDragging = true;
+        this.inertia.active = false;
+        const rect = c.getBoundingClientRect();
+        const sx = e.clientX - rect.left;
+        const sy = e.clientY - rect.top;
+        this.dragStart = { sx, sy, ox: this.originX, oy: this.originY };
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        const rect = c.getBoundingClientRect();
+        const sx = e.clientX - rect.left;
+        const sy = e.clientY - rect.top;
+        this.mouse.sx = sx;
+        this.mouse.sy = sy;
+        const w = this.screenToWorld(sx, sy);
+        this.mouse.x = w.x;
+        this.mouse.y = w.y;
+        this.mouse.inside =
+          e.clientX >= rect.left &&
+          e.clientX <= rect.right &&
+          e.clientY >= rect.top &&
+          e.clientY <= rect.bottom;
+
+        if (this.isDragging) {
+          const dx = sx - this.dragStart.sx;
+          const dy = sy - this.dragStart.sy;
+          const prevOriginX = this.originX;
+          const prevOriginY = this.originY;
+          this.originX = this.dragStart.ox - dx / this.scaleX;
+          this.originY = this.dragStart.oy + dy / this.scaleY;
+          this.inertia.vx = (this.originX - prevOriginX);
+          this.inertia.vy = (this.originY - prevOriginY);
+          this.requestRedraw();
+        }
+      });
+
+      window.addEventListener('mouseup', () => {
+        if (this.isDragging && this.enableInertia) {
+          this.inertia.active = true;
+        }
+        this.isDragging = false;
+      });
+
+      c.addEventListener('mouseleave', () => {
+        this.mouse.inside = false;
+        this.requestRedraw();
+      });
+
+      c.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const rect = c.getBoundingClientRect();
+        const sx = e.clientX - rect.left;
+        const sy = e.clientY - rect.top;
+        const { x: wx, y: wy } = this.screenToWorld(sx, sy);
+        const dir = Math.sign(e.deltaY);
+        const factor = Math.pow(this.zoomFactorPerWheel, dir);
+        const newScaleX = this.clamp(this.scaleX / factor, this.minScale, this.maxScale);
+        const newScaleY = this.clamp(this.scaleY / factor, this.minScale, this.maxScale);
+        this.originX = wx - sx / newScaleX;
+        this.originY = wy + sy / newScaleY;
+        this.scaleX = newScaleX;
+        this.scaleY = newScaleY;
+        this.inertia.active = false;
+        this.requestRedraw();
+      }, { passive: false });
+
+      c.addEventListener('dblclick', () => {
+        this.resetView();
+      });
+    }
+
+   resetView() {
+  this.originX = 0;
+  this.originY = 0;
+  this.scaleX = 60;
+  this.scaleY = 60;
+  this.inertia.active = false;
+  // NEW: Re-center (0,0) after reset
+  setTimeout(() => {  // After potential resize
+    const rect = this.canvas.getBoundingClientRect();
+    const w = rect.width;
+    const h = rect.height;
+    this.originX = - (w / 2) / this.scaleX;
+    this.originY = (h / 2) / this.scaleY;
+    this.requestRedraw();
+  }, 0);
+}
+
+    clamp(v, a, b) {
+      return Math.max(a, Math.min(b, v));
+    }
+
+    requestRedraw() {
+      this.needsRedraw = true;
+    }
+
+    loop() {
+      const tick = () => {
+        if (this.inertia.active && !this.isDragging) {
+          this.originX += this.inertia.vx;
+          this.originY += this.inertia.vy;
+          this.inertia.vx *= 0.9;
+          this.inertia.vy *= 0.9;
+          if (Math.abs(this.inertia.vx) < 1e-4 && Math.abs(this.inertia.vy) < 1e-4) {
+            this.inertia.active = false;
+          }
+          this.needsRedraw = true;
+        }
+
+        if (this.needsRedraw) {
+          this.render();
+          this.needsRedraw = false;
+        }
+        this.anim = requestAnimationFrame(tick);
+      };
+      this.anim = requestAnimationFrame(tick);
+    }
+
+    niceStep(pixelTarget = 80, scalePxPerUnit = 60) {
+      const raw = pixelTarget / scalePxPerUnit;
+      const pow10 = Math.pow(10, Math.floor(Math.log10(raw)));
+      const candidates = [1, 2, 5].map(m => m * pow10);
+      let best = candidates[0];
+      let bd = Math.abs(candidates[0] - raw);
+      for (let i = 1; i < candidates.length; i++) {
+        const d = Math.abs(candidates[i] - raw);
+        if (d < bd) { bd = d; best = candidates[i]; }
+      }
+      return best;
+    }
+
+    render() {
+      const ctx = this.ctx;
+      const w = this.canvas.clientWidth;
+      const h = this.canvas.clientHeight;
+
+      ctx.save();
+      ctx.fillStyle = this.style.bg;
+      ctx.fillRect(0, 0, w, h);  // FIXED: This now uses opaque bg, no trails
+
+      this.drawGrid(w, h);
+      this.drawAxes(w, h);
+
+      for (const s of this.series) {
+        if (s.type === 'function') this.drawFunctionSeries(s, w, h);
+      }
+
+      if (this.legend.show && this.series.some(s => s.name)) this.drawLegend(w, h);
+      if (this.mouse.inside) {
+        this.drawCrosshair(w, h);
+        if (this.tooltip.show) this.drawTooltip();
+      }
+
+      ctx.restore();
+    }
+
+    drawGrid(w, h) {
+      const ctx = this.ctx;
+      const xStep = this.niceStep(80, this.scaleX);
+      const yStep = this.niceStep(80, this.scaleY);
+      const xMinor = xStep / 2;
+      const yMinor = yStep / 2;
+      const xMin = this.screenToWorld(0, 0).x;
+      const xMax = this.screenToWorld(w, 0).x;
+      const yMin = this.screenToWorld(0, h).y;
+      const yMax = this.screenToWorld(0, 0).y;
+
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = this.style.gridMinor;
+
+      let xStartMinor = Math.floor(xMin / xMinor) * xMinor;
+      for (let x = xStartMinor; x <= xMax; x += xMinor) {
+        if (Math.abs(x) < 1e-9) continue;
+        const { sx } = this.worldToScreen(x, 0);
+        ctx.beginPath();
+        ctx.moveTo(sx, 0);
+        ctx.lineTo(sx, h);
+        ctx.stroke();
+      }
+
+      let yStartMinor = Math.floor(yMin / yMinor) * yMinor;
+      for (let y = yStartMinor; y <= yMax; y += yMinor) {
+        if (Math.abs(y) < 1e-9) continue;
+        const { sy } = this.worldToScreen(0, y);
+        ctx.beginPath();
+        ctx.moveTo(0, sy);
+        ctx.lineTo(w, sy);
+        ctx.stroke();
+      }
+
+      ctx.strokeStyle = this.style.gridMajor;
+      let xStart = Math.floor(xMin / xStep) * xStep;
+      for (let x = xStart; x <= xMax; x += xStep) {
+        if (Math.abs(x) < 1e-9) continue;
+        const { sx } = this.worldToScreen(x, 0);
+        ctx.beginPath();
+        ctx.moveTo(sx, 0);
+        ctx.lineTo(sx, h);
+        ctx.stroke();
+
+        const label = this.formatTick(x);
+        ctx.fillStyle = this.style.text;
+        ctx.font = '12px sans-serif';
+        ctx.textAlign = 'center';
+        const axisY = this.worldToScreen(0, 0).sy;
+        const labelY = axisY < h - 18 ? (axisY > 5 ? axisY + 10 : 5) : h - 18;
+        ctx.textBaseline = 'top';
+        ctx.fillText(label, sx, labelY);
+      }
+
+      let yStart = Math.floor(yMin / yStep) * yStep;
+      for (let y = yStart; y <= yMax; y += yStep) {
+        if (Math.abs(y) < 1e-9) continue;
+        const { sy } = this.worldToScreen(0, y);
+        ctx.beginPath();
+        ctx.moveTo(0, sy);
+        ctx.lineTo(w, sy);
+        ctx.stroke();
+
+        const label = this.formatTick(y);
+        ctx.fillStyle = this.style.text;
+        ctx.font = '12px sans-serif';
+        const axisX = this.worldToScreen(0, 0).sx;
+        const labelX = axisX > 40 ? (axisX < w - 5 ? axisX - 10 : w - 5) : 40;
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, labelX, sy);
+      }
+    }
+
+    formatTick(v) {
+      if (v === 0) return '0';
+      const mag = Math.max(Math.abs(v), 1e-12);
+      const logScale = Math.log10(Math.max(this.scaleX, this.scaleY));
+      let precision = logScale > 2 ? 3 : logScale > 1 ? 2 : logScale > 0 ? 1 : 0;
+
+      if (mag >= 1e5 || mag < 1e-4) {
+        return v.toExponential(1);
+      }
+      if (Math.abs(v - Math.round(v)) < 1e-6) {
+        return Math.round(v).toString();
+      }
+      if (Math.abs(v * 10 - Math.round(v * 10)) < 1e-6) {
+        return (Math.round(v * 10) / 10).toFixed(1);
+      }
+      return v.toFixed(precision);
+    }
+
+    drawAxes(w, h) {
+      const ctx = this.ctx;
+      ctx.strokeStyle = this.style.axis;
+      ctx.lineWidth = 1.5;
+
+      const y0 = this.worldToScreen(0, 0).sy;
+      ctx.beginPath();
+      ctx.moveTo(0, y0);
+      ctx.lineTo(w, y0);
+      ctx.stroke();
+
+      const x0 = this.worldToScreen(0, 0).sx;
+      ctx.beginPath();
+      ctx.moveTo(x0, 0);
+      ctx.lineTo(x0, h);
+      ctx.stroke();
+
+      ctx.fillStyle = this.style.axisArrow;
+      if (w - 12 > 0) this.drawArrow(w - 12, y0, w, y0);
+      if (12 < h) this.drawArrow(x0, 12, x0, 0);
+
+      ctx.fillStyle = this.style.text;
+      ctx.font = '13px sans-serif';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'bottom';
+      const xLabelY = Math.min(h - 8, Math.max(15, y0 - 6));
+      ctx.fillText('X', w - 8, xLabelY);
+
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      const yLabelX = Math.min(w - 15, Math.max(6, x0 + 6));
+      ctx.fillText('Y', yLabelX, 6);
+    }
+
+    drawArrow(x1, y1, x2, y2) {
+      const ctx = this.ctx;
+      const angle = Math.atan2(y2 - y1, x2 - x1);
+      const len = 10;
+      ctx.beginPath();
+      ctx.moveTo(x2, y2);
+      ctx.lineTo(x2 - len * Math.cos(angle - Math.PI / 6),
+                 y2 - len * Math.sin(angle - Math.PI / 6));
+      ctx.lineTo(x2 - len * Math.cos(angle + Math.PI / 6),
+                 y2 - len * Math.sin(angle + Math.PI / 6));
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    drawFunctionSeries(s, w, h) {
+      const ctx = this.ctx;
+      ctx.strokeStyle = s.color;
+      ctx.lineWidth = s.width;
+      ctx.beginPath();
+
+      let started = false;
+      let prevSy;
+
+      for (let sx = 0; sx <= w; sx += s.sampleStep) {
+        const { x } = this.screenToWorld(sx, 0);
+        let y;
+        try {
+          y = s.fn(x);
+          if (!isFinite(y)) {
+            started = false;
+            continue;
+          }
+        } catch {
+          started = false;
+          continue;
+        }
+        const { sy } = this.worldToScreen(0, y);
+
+        if (sy < -h || sy > 2 * h) {
+          if (started && prevSy !== undefined && (prevSy < -h || prevSy > 2 * h || Math.abs(sy - prevSy) > h * 2)) {
+            started = false;
+          } else if (!started) {
+            prevSy = sy;
+            continue;
+          }
+        }
+
+        if (!started) {
+          ctx.moveTo(sx, sy);
+          started = true;
+        } else {
+          ctx.lineTo(sx, sy);
+        }
+        prevSy = sy;
+      }
+      ctx.stroke();
+    }
+
+    drawLegend(w, h) {
+      const ctx = this.ctx;
+      const padding = 10;
+      const lineLen = 18;
+      const rowH = 22;
+      let x = w - 160, y = 15;
+
+      ctx.font = '14px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+
+      const namedSeries = this.series.filter(s => s.name);
+      if (namedSeries.length === 0) return;
+
+      let maxTextWidth = 0;
+      for (const s of namedSeries) {
+        maxTextWidth = Math.max(maxTextWidth, ctx.measureText(s.name).width);
+      }
+
+      const boxW = maxTextWidth + lineLen + padding * 2 + 8;
+      const boxH = padding * 2 + namedSeries.length * rowH;
+
+      x = Math.max(padding, w - boxW - padding);
+      y = Math.max(padding, padding);
+
+      ctx.fillStyle = this.style.tooltipBg;
+      ctx.strokeStyle = this.style.tooltipBorder;
+      ctx.beginPath();
+      ctx.roundRect(x - padding, y - padding, boxW, boxH, 8);
+      ctx.fill();
+      ctx.stroke();
+
+      let yy = y;
+      for (const s of namedSeries) {
+        ctx.strokeStyle = s.color;
+        ctx.lineWidth = s.width;
+        ctx.beginPath();
+        ctx.moveTo(x, yy);
+        ctx.lineTo(x + lineLen, yy);
+        ctx.stroke();
+
+        ctx.fillStyle = this.style.legendText;
+        ctx.fillText(s.name, x + lineLen + 8, yy);
+        yy += rowH;
+      }
+    }
+
+    drawCrosshair(w, h) {
+      const ctx = this.ctx;
+      const sx = this.mouse.sx;
+      const sy = this.mouse.sy;
+      ctx.strokeStyle = this.style.crosshair;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(sx, 0);
+      ctx.lineTo(sx, h);
+      ctx.moveTo(0, sy);
+      ctx.lineTo(w, sy);
+      ctx.stroke();
+    }
+
+    drawTooltip() {
+      const ctx = this.ctx;
+      const { sx, sy, x, y } = this.mouse;
+      const text = `(${this.formatTick(x)}, ${this.formatTick(y)})`;
+
+      ctx.font = this.tooltip.font;
+      const metrics = ctx.measureText(text);
+      const padding = this.tooltip.padding;
+      const tw = metrics.width + padding * 2;
+      const th = 20 + padding * 2;
+      let bx = sx + 12, by = sy + 12;
+
+      const cw = this.canvas.clientWidth, ch = this.canvas.clientHeight;
+      if (bx + tw + 8 > cw) bx = cw - tw - 8;
+      if (by + th + 8 > ch) by = ch - th - 8;
+      if (bx < 8) bx = 8;
+      if (by < 8) by = 8;
+
+      ctx.fillStyle = this.style.tooltipBg;
+      ctx.strokeStyle = this.style.tooltipBorder;
+      ctx.beginPath();
+      ctx.roundRect(bx, by, tw, th, 5);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = this.style.tooltipText;  // NEW: Use dark tooltip text
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, bx + padding, by + th / 2);
+    }
+
+    // NEW: Destroy method for cleanup
+    destroy() {
+      this.resizeObserver.disconnect();
+      if (this.anim) cancelAnimationFrame(this.anim);
+    }
+  }
+
+  // Initialize MathQuill
+  var MQ = MathQuill.getInterface(2);
+  var mathField;
+
+  // Common mathematical expressions and functions
+  const suggestions = [
+    { latex: 'x^2', title: 'Square' },
+    { latex: '\\sqrt{x}', title: 'Square root' },
+    { latex: 'e^x', title: 'Exponential' },
+    { latex: '\\sin(x)', title: 'Sine' },
+    { latex: '\\cos(x)', title: 'Cosine' },
+    
+    // NEW: Utility buttons for user convenience
+  { latex: 'DEL', display: '⌫', title: 'Backspace' },
+  { latex: 'CLR', display: 'Clear', title: 'Clear field' }
+  ];
+
+  // Advanced mathematical functions for keyboard (with uppercase letters added)
+  const mathKeys = [
+  // Basic operators (Row 1)
+  { latex: '+', type: 'operator', display: '+' },
+  { latex: '-', type: 'operator', display: '−' },
+  { latex: '\\times', type: 'operator', display: '×' },
+  { latex: '\\div', type: 'operator', display: '÷' },
+  
+  // Brackets (Row 2)
+  { latex: '(', type: 'bracket', display: '(' },
+  { latex: ')', type: 'bracket', display: ')' },
+  { latex: '[', type: 'bracket', display: '[' },
+  { latex: ']', type: 'bracket', display: ']' },
+  { latex: '{', type: 'bracket', display: '{' },
+  { latex: '}', type: 'bracket', display: '}' },
+  
+  // Exponents/roots (Row 3)
+  { latex: 'x^{}', type: 'operator', display: 'xⁿ' },
+  { latex: 'x_{}', type: 'operator', display: 'xₙ' },
+  { latex: '\\sqrt{}', type: 'function', display: '√' },
+  { latex: '\\sqrt[3]{}', type: 'function', display: '∛' },
+  
+  // Fractions (Row 4)
+  { latex: '\\frac{}{}', type: 'template', display: 'a/b' },
+  { latex: '\\pm', type: 'operator', display: '±' },
+  { latex: '\\mp', type: 'operator', display: '∓' },
+  { latex: '\\infty', type: 'constant', display: '∞' },
+  
+  // Trig functions (Row 5)
+  { latex: '\\sin{}', type: 'function', display: 'sin' },
+  { latex: '\\cos{}', type: 'function', display: 'cos' },
+  { latex: '\\tan{}', type: 'function', display: 'tan' },
+  { latex: '\\csc{}', type: 'function', display: 'csc' },
+  
+  // Hyperbolic (Row 6)
+  { latex: '\\sinh', type: 'function', display: 'sinh' },
+  { latex: '\\cosh', type: 'function', display: 'cosh' },
+  { latex: '\\tanh', type: 'function', display: 'tanh' },
+  { latex: '\\ln', type: 'function', display: 'ln' },
+  
+  // Logs/exps (Row 7)
+  { latex: '\\log_{10}{}', type: 'function', display: 'log' },
+  { latex: 'e^{}', type: 'template', display: 'e^x' },
+  { latex: '\\exp', type: 'function', display: 'exp' },
+  { latex: '\\pi', type: 'constant', display: 'π' },
+
+  //Dumb enough to forgot to put numbers earlier
+  { latex: '0', type: 'number', display: '0' },
+  { latex: '1', type: 'number', display: '1' },
+  { latex: '2', type: 'number', display: '2' },
+  { latex: '3', type: 'number', display: '3' },
+  { latex: '4', type: 'number', display: '4' },
+  { latex: '5', type: 'number', display: '5' },
+  { latex: '6', type: 'number', display: '6' },
+  { latex: '7', type: 'number', display: '7' },
+  { latex: '8', type: 'number', display: '8' },
+  { latex: '9', type: 'number', display: '9' },
+
+  // Latin Alphabet Lowercase (variables - italic in math)
+  { latex: 'a', type: 'letter', display: 'a' },
+  { latex: 'b', type: 'letter', display: 'b' },
+  { latex: 'c', type: 'letter', display: 'c' },
+  { latex: 'd', type: 'letter', display: 'd' },
+  { latex: 'e', type: 'letter', display: 'e' },
+  { latex: 'f', type: 'letter', display: 'f' },
+  { latex: 'g', type: 'letter', display: 'g' },
+  { latex: 'h', type: 'letter', display: 'h' },
+  { latex: 'i', type: 'letter', display: 'i' },
+  { latex: 'j', type: 'letter', display: 'j' },
+  { latex: 'k', type: 'letter', display: 'k' },
+  { latex: 'l', type: 'letter', display: 'l' },
+  { latex: 'm', type: 'letter', display: 'm' },
+  { latex: 'n', type: 'letter', display: 'n' },
+  { latex: 'o', type: 'letter', display: 'o' },
+  { latex: 'p', type: 'letter', display: 'p' },
+  { latex: 'q', type: 'letter', display: 'q' },
+  { latex: 'r', type: 'letter', display: 'r' },
+  { latex: 's', type: 'letter', display: 's' },
+  { latex: 't', type: 'letter', display: 't' },
+  { latex: 'u', type: 'letter', display: 'u' },
+  { latex: 'v', type: 'letter', display: 'v' },
+  { latex: 'w', type: 'letter', display: 'w' },
+  { latex: 'x', type: 'letter', display: 'x' },
+  { latex: 'y', type: 'letter', display: 'y' },
+  { latex: 'z', type: 'letter', display: 'z' },
+
+  // NEW: Latin Alphabet Uppercase (constants - upright in math)
+  { latex: 'A', type: 'constant', display: 'A' },
+  { latex: 'B', type: 'constant', display: 'B' },
+  { latex: 'C', type: 'constant', display: 'C' },
+  { latex: 'D', type: 'constant', display: 'D' },
+  { latex: 'E', type: 'constant', display: 'E' },
+  { latex: 'F', type: 'constant', display: 'F' },
+  { latex: 'G', type: 'constant', display: 'G' },
+  { latex: 'H', type: 'constant', display: 'H' },
+  { latex: 'I', type: 'constant', display: 'I' },
+  { latex: 'J', type: 'constant', display: 'J' },
+  { latex: 'K', type: 'constant', display: 'K' },
+  { latex: 'L', type: 'constant', display: 'L' },
+  { latex: 'M', type: 'constant', display: 'M' },
+  { latex: 'N', type: 'constant', display: 'N' },
+  { latex: 'O', type: 'constant', display: 'O' },
+  { latex: 'P', type: 'constant', display: 'P' },
+  { latex: 'Q', type: 'constant', display: 'Q' },
+  { latex: 'R', type: 'constant', display: 'R' },
+  { latex: 'S', type: 'constant', display: 'S' },
+  { latex: 'T', type: 'constant', display: 'T' },
+  { latex: 'U', type: 'constant', display: 'U' },
+  { latex: 'V', type: 'constant', display: 'V' },
+  { latex: 'W', type: 'constant', display: 'W' },
+  { latex: 'X', type: 'constant', display: 'X' },
+  { latex: 'Y', type: 'constant', display: 'Y' },
+  { latex: 'Z', type: 'constant', display: 'Z' },
+  
+  // Greek letters (Row 8)
+  { latex: '\\alpha', type: 'greek', display: 'α' },
+  { latex: '\\beta', type: 'greek', display: 'β' },
+  { latex: '\\gamma', type: 'greek', display: 'γ' },
+  { latex: '\\delta', type: 'greek', display: 'δ' },
+  
+  // More Greek (Row 9)
+  { latex: '\\theta', type: 'greek', display: 'θ' },
+  { latex: '\\lambda', type: 'greek', display: 'λ' },
+  { latex: '\\mu', type: 'greek', display: 'μ' },
+  { latex: '\\phi', type: 'greek', display: 'φ' },
+  
+  // Advanced symbols (Row 10)
+  { latex: '\\sum', type: 'advanced', display: '∑' },
+  { latex: '\\int', type: 'advanced', display: '∫' },
+  { latex: '\\lim', type: 'advanced', display: 'lim' },
+  { latex: '\\partial', type: 'operator', display: '∂' },
+  
+  // More advanced (Row 11)
+  { latex: '\\prod', type: 'advanced', display: '∏' },
+  { latex: '\\cup', type: 'operator', display: '∪' },
+  { latex: '\\cap', type: 'operator', display: '∩' },
+  { latex: '\\exists', type: 'logic', display: '∃' },
+  
+  // Matrices/equality (Row 12 - bonus for equations)
+  { latex: '\\begin{pmatrix}', type: 'matrix', display: '[ ]' },
+  { latex: '=', type: 'operator', display: '=' },
+  { latex: '\\approx', type: 'operator', display: '≈' },
+  { latex: '\\neq', type: 'operator', display: '≠' },
+  
+  // Clear/Backspace (Utility - always visible, full-width on mobile)
+  { latex: 'DEL', type: 'utility', display: '⌫' },
+  { latex: 'CLR', type: 'utility', display: 'Clear' }
+];
+
+ document.addEventListener('DOMContentLoaded', function() {
+  // Initialize MathQuill field
+  const mathInput = document.getElementById('math-input');
+  mathField = MQ.MathField(mathInput, {
+    spaceBehavesLikeTab: true,
+    handlers: {
+      edit: function() {
+        const latex = mathField.latex();
+        document.getElementById('expr').value = latexToMathJS(latex);
+      }
+    }
+  });
+
+  // Mobile detection and enhancements
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+  // Force focus on touch for mobile
+  mathInput.addEventListener('touchstart', function(e) {
+    if (isMobile) {
+      e.preventDefault();
+      setTimeout(() => {
+        mathField.focus();
+      }, 100);
+    }
+  }, { passive: false });
+
+  // Safer mobile re-focus on keypress
+  if (isMobile) {
+    mathInput.addEventListener('keyup', function(e) {
+      setTimeout(() => {
+        mathField.focus();
+      }, 50);
+    });
+    console.log('Mobile mode enabled: Keyup listener attached for re-focus.');
+  }
+
+  // Add a mobile hint near the input (optional, for UX)
+  const mobileHint = document.createElement('small');
+  mobileHint.style.cssText = 'display: block; font-size: 11px; color: var(--muted); margin-top: 4px;';
+  mobileHint.style.display = isMobile ? 'block' : 'none';
+  document.querySelector('.math-input-wrapper').appendChild(mobileHint);
+
+  // Set initial expression
+  mathField.latex('x^2');
+  console.log('Initial latex set to x^2');
+
+  // Initialize suggestions
+  const suggestionContainer = document.getElementById('mathSuggestions');
+  if (suggestionContainer) {
+    console.log('Suggestions container found');
+    suggestions.forEach(suggestion => {
+  const btn = document.createElement('button');
+  btn.className = 'math-suggestion';
+  btn.title = suggestion.title;
+  
+  // NEW: Special rendering for utilities (if display exists)
+  if (suggestion.display) {
+    btn.textContent = suggestion.display;  // Use plain text/emoji (no KaTeX)
+  } else {
+    // Original: Math suggestions
+    btn.innerHTML = `$${suggestion.latex}$`;
+    katex.render(suggestion.latex, btn, { throwOnError: false });
+  }
+  
+  // UPDATED: Special onclick for utilities
+  btn.onclick = () => {
+    if (suggestion.latex === 'DEL') {
+      mathField.keystroke('Backspace');  // Backspace action
+    } else if (suggestion.latex === 'CLR') {
+      mathField.latex('');  // Clear action
+    } else {
+      mathField.write(suggestion.latex);  // Insert LaTeX for math suggestions
+    }
+    mathField.focus();
+  };
+  
+  suggestionContainer.appendChild(btn);
+});
+    console.log('Suggestions initialized');
+  } else {
+    console.error('Suggestions container not found!');
+  }
+
+  // FIXED: Initialize keyboard with safe KaTeX rendering
+  const keyboard = document.getElementById('mathKeyboard');
+  if (keyboard) {
+    mathKeys.forEach(key => {
+      const btn = document.createElement('button');
+      btn.className = 'math-key';
+      
+      // Special handling for utility keys
+      if (key.latex === 'DEL') {
+        btn.title = 'Backspace';
+        btn.onclick = () => {
+          mathField.keystroke('Backspace');
+          mathField.focus();
+        };
+        btn.textContent = key.display;
+      } else if (key.latex === 'CLR') {
+        btn.title = 'Clear field';
+        btn.onclick = () => {
+          mathField.latex('');
+          mathField.focus();
+        };
+        btn.textContent = key.display;
+      } else {
+        // Standard insert (uses latex for templates)
+        btn.onclick = () => {
+          mathField.write(key.latex);
+          mathField.focus();
+        };
+        
+        // FIXED: Use key.display for safe preview (math font without errors)
+        const renderStr = key.display;
+        try {
+          btn.innerHTML = '';
+          katex.render(renderStr, btn, { 
+            throwOnError: false, 
+            displayMode: false  // Inline
+          });
+          if (!btn.innerHTML.trim()) {
+            btn.textContent = renderStr;
+          }
+        } catch (e) {
+          btn.textContent = renderStr;
+          console.warn(`KaTeX render failed for key preview "${renderStr}":`, e);
+        }
+      }
+      
+      keyboard.appendChild(btn);
+    });
+    console.log(`Keyboard initialized with ${mathKeys.length} keys (math font previews).`);
+  }
+
+  // Toggle keyboard
+  const keyboardToggle = document.getElementById('keyboardToggle');
+  if (keyboardToggle) {
+    keyboardToggle.onclick = () => {
+      keyboard.classList.toggle('active');
+      console.log('Keyboard toggled:', keyboard.classList.contains('active') ? 'visible' : 'hidden');  // Debug
+    };
+  }
+
+  // Close keyboard when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.math-input-wrapper')) {
+      keyboard.classList.remove('active');
+    }
+  });
+
+  console.log('DOMContentLoaded fully executed');
+});
+  
+  // Enhanced LaTeX to math.js converter
+function latexToMathJS(latex) {
+  let expr = latex
+    // Basic operators
+    .replace(/\\cdot|\\times/g, '*')
+    .replace(/\\div/g, '/')
+    .replace(/\\frac{([^}]*?)}{([^}]*?)}/g, '($1)/($2)')
+    .replace(/\\sqrt(?:\[[^}]+\])?{([^}]*)}/g, 'sqrt($1)')
+    .replace(/([a-zA-Z0-9_.]+)\^{([^}]*)}/g, '$1^($2)')
+    .replace(/([a-zA-Z0-9_.]+)_([^}]*)/g, '$1_$2')
+    
+    // Trig and hyperbolic functions
+    .replace(/\\sin/g, 'sin')
+    .replace(/\\cos/g, 'cos')
+    .replace(/\\tan/g, 'tan')
+    .replace(/\\csc/g, 'csc')
+    .replace(/\\sinh/g, 'sinh')
+    .replace(/\\cosh/g, 'cosh')
+    .replace(/\\tanh/g, 'tanh')
+    
+    // Logs and exp
+    .replace(/\\ln/g, 'log')
+    .replace(/\\log/g, 'log')
+    .replace(/\\exp/g, 'exp')
+    
+    // Constants
+    .replace(/\\pi/g, 'pi')
+    .replace(/\\infty/g, 'Infinity')
+    
+    // Greek letters
+    .replace(/\\alpha/g, 'alpha')
+    .replace(/\\beta/g, 'beta')
+    .replace(/\\gamma/g, 'gamma')
+    .replace(/\\delta/g, 'delta')
+    .replace(/\\theta/g, 'theta')
+    .replace(/\\lambda/g, 'lambda')
+    .replace(/\\mu/g, 'mu')
+    .replace(/\\phi/g, 'phi')
+    
+    // Advanced symbols
+    .replace(/\\sum/g, 'sum')
+    .replace(/\\int/g, 'int')
+    .replace(/\\lim/g, 'lim')
+    .replace(/\\partial/g, 'partial')
+    .replace(/\\prod/g, 'prod')
+    .replace(/\\cup/g, 'cup')
+    .replace(/\\cap/g, 'cap')
+    .replace(/\\exists/g, 'exists')
+    .replace(/\\approx/g, '~')
+    .replace(/\\neq/g, '!=')
+    
+    // Remove braces and extras
+    .replace(/\\left|\\right/g, '')
+    .replace(/\{|\}/g, '()')
+    .trim();
+  
+  expr = expr.replace(/\\begin\{pmatrix\}/g, '[').replace(/\\end\{pmatrix\}/g, ']');
+  
+  return expr;
+}
+
+  // Utility: parse a value with math.js
+  function parseValue(str) {
+    if (!str || !String(str).trim()) throw new Error("Value is empty.");
+    const node = math.parse(str);
+    const code = node.compile();
+    const val = code.evaluate();
+    const num = Number(val);
+    if (!isFinite(num)) throw new Error("Value evaluated to non-finite.");
+    return num;
+  }
+
+// Make f(x): returns a JS function for numeric evaluation
+function compileFunction(expr, variable='x') {
+  const node = math.parse(expr);
+  const code = node.compile();
+  return (x) => {
+    const scope = {};
+    scope[variable] = x;
+    const v = code.evaluate(scope);
+    const num = Number(v);
+    if (!isFinite(num)) throw new Error("f(x) returned non-finite number at x=" + x);
+    return num;
+  };
+}
+
+// Adaptive Simpson integration
+function integrateAdaptiveSimpson(f, a, b, opts = {}) {
+  const absTol = opts.absTol ?? 1e-10;
+  const relTol = opts.relTol ?? 1e-10;
+  const maxDepth = opts.maxDepth ?? 20;
+
+function simpson(fa, fm, fb, a, b) {
+  return (b - a) * (fa + 4 * fm + fb) / 6;
+}
+
+if (!isFinite(a) || !isFinite(b)) throw new Error("Integration limits must be finite.");
+if (a === b) return 0;
+
+const fa = f(a);
+const fb = f(b);
+const m = 0.5 * (a + b);
+const fm = f(m);
+const Sab = simpson(fa, fm, fb, a, b);
+
+function recurse(a, fa, m, fm, b, fb, Sab, depth) {
+  const lm = 0.5 * (a + m);
+  const rm = 0.5 * (m + b);
+  const flm = f(lm);
+  const frm = f(rm);
+
+const Sa = simpson(fa, flm, fm, a, m);
+const Sb = simpson(fm, frm, fb, m, b);
+const S12 = Sa + Sb;
+
+const err = Math.abs(S12 - Sab);
+const tol = 15 * Math.max(absTol, relTol * Math.abs(S12));
+
+  if (err <= tol || depth >= maxDepth) {
+    return S12 + (S12 - Sab) / 15;
+  }
+  return recurse(a, fa, lm, flm, m, fm, Sa, depth + 1)
+       + recurse(m, fm, rm, frm, b, fb, Sb, depth + 1);
+}
+
+  return recurse(a, fa, m, fm, b, fb, Sab, 0);
+}
+
+// Numeric derivative at x0
+function derivativeNumeric(f, x0) {
+  if (!isFinite(x0)) throw new Error("x0 must be finite.");
+  let h = Math.max(1e-5, Math.abs(x0) * 1e-5);
+  function df(h) {
+    const f1 = f(x0 + h);
+    const f2 = f(x0 - h);
+    return (f1 - f2) / (2 * h);
+  }
+  const d1 = df(h);
+  const d2 = df(h / 2);
+  const rich = (4 * d2 - d1) / 3;
+  return rich;
+}
+
+// Numeric limit of f(x) at x0
+function limitNumeric(f, x0) {
+  if (!isFinite(x0)) throw new Error("x0 must be finite.");
+  let h = Math.max(1e-5, Math.abs(x0) * 1e-5);
+  const samples = [];
+  for (let k = 0; k < 5; k++) {
+    const hp = h / Math.pow(2, k);
+    const left = f(x0 - hp);
+    const right = f(x0 + hp);
+    if (!isFinite(left) || !isFinite(right)) continue;
+    samples.push(0.5 * (left + right));
+  }
+  if (!samples.length) throw new Error("Could not sample finite values near x0.");
+  samples.sort((a,b)=>a-b);
+  const trimmed = samples.slice(1, samples.length - 1);
+  const arr = trimmed.length ? trimmed : samples;
+  const avg = arr.reduce((s,v)=>s+v,0) / arr.length;
+  return avg;
+}
+
+// Render LaTeX using KaTeX
+function renderLatex(el, latex) {
+  katex.render(latex, el, { 
+    throwOnError: false, 
+    displayMode: true,
+    trust: true,
+    macros: {
+      "\\derivative": "\\frac{d}{d#1}",
+    },
+    strict: false,
+    linebreaks: false,
+    maxSize: '100%',
+    wrap: false
+  });
+  // NEW: Post-render style fix for aligned overlap
+const displaySpan = el.querySelector('.katex-display');
+if (displaySpan) {
+  displaySpan.style.cssText = `
+    display: block !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  `;
+  const mathRows = displaySpan.querySelectorAll('.mrow');
+  mathRows.forEach(row => {
+    row.style.whiteSpace = 'normal';
+    row.style.overflowWrap = 'break-word';
+  });
+}
+}
+
+// Format number
+function fmtNumber(x) {
+  if (!isFinite(x)) return String(x);
+  const abs = Math.abs(x);
+  if (abs !== 0 && (abs < 1e-4 || abs >= 1e6)) {
+    return x.toExponential(8);
+  }
+  return Number(x.toFixed(10)).toString();
+}
+
+// Compute handler
+const resultEl = document.getElementById('resultLatex');
+const errorEl = document.getElementById('errorMsg');
+
+document.getElementById('computeBtn').addEventListener('click', () => {
+  errorEl.textContent = '';
+  resultEl.textContent = '';
+  try {
+    const expr = document.getElementById('expr').value.trim();
+    const variable = document.getElementById('variable').value.trim() || 'x';
+    const op = document.getElementById('op').value;
+    const x0Str = document.getElementById('x0').value.trim();
+    const intervalStr = document.getElementById('interval').value.trim();
+
+if (!expr) throw new Error("Enter a function expression.");
+const f = compileFunction(expr, variable);
+const originalLatex = mathField.latex();
+
+   if (op === 'evaluate') {
+  if (!x0Str) throw new Error("Enter x0 for evaluation.");
+  const x0 = parseValue(x0Str);
+  const y = f(x0);
+
+  let functionLatex;
+  try {
+    const node = math.parse(expr);
+    functionLatex = node.toTex({
+      parenthesis: 'keep',
+      implicit: 'hide'
+    });
+  } catch (texErr) {
+    console.warn('toTex failed for function; using original LaTeX:', texErr);
+    functionLatex = originalLatex;  // Safe KaTeX-compatible fallback
+  }
+
+  // x0Latex is safe here since parseValue(x0Str) already succeeded
+  const x0Node = math.parse(x0Str);
+  const x0Latex = x0Node.toTex({
+    parenthesis: 'keep',
+    implicit: 'hide'
+  });
+
+  // NEW: Render as three stacked single-line display blocks (no aligned)
+  resultEl.innerHTML = '';  // Clear
+
+  // Line 1: f(var) = function
+  const line1Latex = `f(${variable}) = ${functionLatex}`;
+  const line1Div = document.createElement('div');
+  line1Div.style.marginBottom = '12pt';  // Spacing like \\[12pt]
+  renderLatex(line1Div, line1Latex);
+  resultEl.appendChild(line1Div);
+
+  // Line 2: var_0 = x0
+  const line2Latex = `${variable}_0 = ${x0Latex}`;
+  const line2Div = document.createElement('div');
+  line2Div.style.marginBottom = '12pt';
+  renderLatex(line2Div, line2Latex);
+  resultEl.appendChild(line2Div);
+
+  // Line 3: f(x0) = y
+  const line3Latex = `f(${x0Latex}) = ${fmtNumber(y)}`;
+  const line3Div = document.createElement('div');
+  renderLatex(line3Div, line3Latex);
+  resultEl.appendChild(line3Div);
+
+  // Optional: Align = signs roughly with CSS (if desired, but not needed for no-overlap)
+  // resultEl.style.textAlign = 'left';  // Or 'center' for centered stack
+
+} else if (op === 'differentiateSymbolic') {
+      try {
+        const originalNode = math.parse(expr);
+        const originalLatex = originalNode.toTex({
+          parenthesis: 'keep',
+          implicit: 'hide'
+        });
+
+        const dnode = math.derivative(expr, variable);
+        
+        const derivativeLatex = dnode.toTex({
+          parenthesis: 'keep',
+          implicit: 'hide'
+        });
+
+        const resultLatex = `f(${variable}) = ${originalLatex}\\\\[8pt]
+        \\frac{d}{d${variable}}f(${variable}) = ${derivativeLatex}`;
+        
+        renderLatex(resultEl, resultLatex);
+      } catch (err) {
+        throw new Error("Could not compute symbolic derivative: " + err.message);
+      }
+    } else if (op === 'differentiateNumeric') {
+      if (!x0Str) throw new Error("Enter x0 for derivative.");
+      const x0 = parseValue(x0Str);
+      const df = derivativeNumeric(f, x0);
+      renderLatex(resultEl, `\\left.\\dfrac{df}{d${variable}}\\right|_{${variable}=${fmtNumber(x0)}} \\approx ${fmtNumber(df)}`);
+    } else if (op === 'integrateDefinite') {
+      if (!intervalStr) throw new Error("Enter interval as a, b.");
+      const parts = intervalStr.split(',').map(s => s.trim());
+      if (parts.length !== 2) throw new Error("Interval must be two comma-separated values.");
+      const a = parseValue(parts[0]);
+      const b = parseValue(parts[1]);
+      const I = integrateAdaptiveSimpson(f, a, b, { absTol: 1e-10, relTol: 1e-10, maxDepth: 20 });
+      renderLatex(resultEl, `\\int_{${fmtNumber(a)}}^{${fmtNumber(b)}} f(${variable})\\, dx \\approx ${fmtNumber(I)}`);
+    } else if (op === 'limit') {
+      if (!x0Str) throw new Error("Enter x0 for limit.");
+      const x0 = parseValue(x0Str);
+      const L = limitNumeric(f, x0);
+      renderLatex(resultEl, `\\lim_{${variable} \\to ${fmtNumber(x0)}} f(${variable}) \\approx ${fmtNumber(L)}`);
+    }
+  } catch (err) {
+    errorEl.textContent = err.message;
+  }
+});
+
+// Plot handler
+document.getElementById('plotBtn').addEventListener('click', () => {
+  errorEl.textContent = '';
+  try {
+    const expr = document.getElementById('expr').value.trim();
+    if (!expr) throw new Error("Enter a function expression.");
+    const variable = document.getElementById('variable').value.trim() || 'x';
+    const f = compileFunction(expr, variable);
+
+    const plotEl = document.getElementById('plot');
+    let canvas = plotEl.querySelector('canvas');
+    if (!canvas) {
+      canvas = document.createElement('canvas');
+      plotEl.appendChild(canvas);
+    }
+
+    // Initialize graph if not already
+    if (!canvas.graph) {
+      canvas.graph = new Graph2D(canvas, {
+        bg: '#0B1020',
+        gridMajor: 'rgba(255,255,255,0.18)',
+        gridMinor: 'rgba(255,255,255,0.08)',
+        axis: 'rgba(255,255,255,0.6)',
+        axisArrow: 'rgba(255,255,255,0.8)',
+        tick: 'rgba(255,255,255,0.4)',
+        text: 'rgba(255,255,255,0.9)',
+        crosshair: 'rgba(255,255,255,0.25)',
+        tooltipBg: 'rgba(255,255,255,0.9)',
+        tooltipBorder: 'rgba(0,0,0,0.15)',
+        tooltipText: '#111111',
+        legendText: '#111111'
+      });
+    } else {
+      canvas.graph.clearSeries();
+    }
+
+    // Parse domain or fallback to interval or default
+    let xmin = -5, xmax = 5;
+    const domainStr = document.getElementById('domain').value.trim();
+    const intervalStr = document.getElementById('interval').value.trim();
+    let useStr = domainStr || intervalStr;
+    if (useStr) {
+      const parts = useStr.split(',').map(s => s.trim());
+      if (parts.length === 2) {
+        xmin = parseValue(parts[0]);
+        xmax = parseValue(parts[1]);
+      }
+    }
+
+    // Compute sample step based on canvas width and desired samples
+    const rect = canvas.getBoundingClientRect();
+    const w = rect.width;
+    const samples = parseInt(document.getElementById('samples').value) || 400;
+    const step = Math.max(1, w / samples);
+
+    // Add function
+    canvas.graph.addFunction(f, {
+      sampleStep: step,
+      color: '#00D4FF'
+    });
+
+    // Display function in result section
+     const originalLatex = mathField.latex();
+     renderLatex(resultEl, `f(${variable}) = ${originalLatex}`);
+
+    
+
+    // NEW: Center (0,0) at screen middle (all quadrants visible, no clip)
+    const h = rect.height;  // Reuse rect for height
+    canvas.graph.originX = - (w / 2) / canvas.graph.scaleX;  // Shift x-origin left for center
+    canvas.graph.originY = (h / 2) / canvas.graph.scaleY;    // Shift y-origin down for center (inverts for positive-up)
+    canvas.graph.requestRedraw();
+
+    // No custom adjust—use defaults for symmetric centering around (0,0)
+
+  } catch (err) {
+    errorEl.textContent = err.message;
+  }
+});
+</script>
+</body>
+</html>
