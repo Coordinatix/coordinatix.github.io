@@ -894,7 +894,7 @@ header .chip {
     <span class="ok">Ready</span>
   </div>
     <div>
-      <label for="expr">Function f(x)</label>
+      <label for="expr">Function f(𝓧)</label>
       <div class="math-input-wrapper">
         <span id="math-input"></span>
         <button class="math-keyboard-toggle" id="keyboardToggle">⌨</button>
@@ -915,29 +915,29 @@ header .chip {
       <div>
         <label for="op">Operation</label>
         <select id="op">
-          <option value="evaluate">Evaluate f(x0)</option>
+          <option value="evaluate">Evaluate 𝒇(𝓧₀)</option>
           <option value="differentiateSymbolic">Derivative (symbolic)</option>
-          <option value="differentiateNumeric">Derivative at x0 (numeric)</option>
-          <option value="integrateDefinite">Definite integral ∫ f dx from a to b</option>
-          <option value="limit">Limit of f(x) at x0</option>
+          <option value="differentiateNumeric">Derivative at  𝓧₀ (numeric)</option>
+          <option value="integrateDefinite">Definite integral ʃ 𝒇 d𝓧 from a to b</option>
+          <option value="limit">Limit of 𝒇(𝓧) at  𝓧₀</option>
         </select>
       </div>
     </div>
 
 <div class="grid2">
   <div>
-    <label for="x0">x0 (for evaluate/limit/derivative at point)</label>
-    <input id="x0" type="text" placeholder="e.g. 0, pi/3, sqrt(2)" />
+    <label for=" 𝓧₀"> 𝓧₀ (for evaluate/limit/derivative at point)</label>
+    <input id=" 𝓧₀" type="text" placeholder="e.g. 0, 𝜋/3, √2" />
   </div>
   <div>
     <label for="interval">Interval [a, b] (for integral / plot)</label>
-    <input id="interval" type="text" placeholder="e.g. -2, 2" />
+    <input id="interval" type="text" placeholder="e.g. [-2, 2]" />
   </div>
 </div>
 
 <div class="actions">
   <button class="btn btn-primary" id="computeBtn">Compute</button>
-  <button class="btn btn-ghost" id="plotBtn">Plot f(x)</button>
+  <button class="btn btn-ghost" id="plotBtn">Plot 𝒇(𝓧)</button>
   <div class="chip"><small>Tolerance</small><span id="tolChip">1e-10</span></div>
 </div>
 
@@ -959,8 +959,8 @@ header .chip {
         <input id="samples" type="number" min="50" max="2000" value="400" />
       </div>
       <div>
-        <label for="domain">Plot domain [xmin, xmax]</label>
-        <input id="domain" type="text" placeholder="e.g. -5, 5" />
+        <label for="domain">Plot domain [𝓧ₘᵢₙ, 𝓧ₘₐₓ]</label>
+        <input id="domain" type="text" placeholder="e.g. [-5, 5]" />
       </div>
     </div>
   </section>
@@ -1570,7 +1570,6 @@ header .chip {
   // Common mathematical expressions and functions
   const suggestions = [
     { latex: 'x^2', title: 'Square' },
-    { latex: '\\sqrt{x}', title: 'Square root' },
     { latex: 'e^x', title: 'Exponential' },
     { latex: '\\sin(x)', title: 'Sine' },
     
