@@ -1134,6 +1134,65 @@ header .chip {
       c.addEventListener('dblclick', () => {
         this.resetView();
       });
+
+       c.addEventListener('touchstart', (e) => {
+        if (e.touches.length > 1) return; // Ignore multi-touch for now
+        e.preventDefault();
+        const touch = e.changedTouches[0];
+        const rect = c.getBoundingClientRect();
+        const sx = touch.clientX - rect.left;
+        const sy = touch.clientY - rect.top;
+        this.isDragging = true;
+        this.inertia.active = false;
+        this.dragStart = { sx, sy, ox: this.originX, oy: this.originY };
+      }, { passive: false });
+
+      window.addEventListener('touchmove', (e) => {
+        if (!this.isDragging || e.touches.length > 1) return;
+        e.preventDefault();
+        const touch = e.changedTouches[0];
+        const rect = c.getBoundingClientRect();
+        const sx = touch.clientX - rect.left;
+        const sy = touch.clientY - rect.top;
+        this.mouse.sx = sx;
+        this.mouse.sy = sy;
+        const w = this.screenToWorld(sx, sy);
+        this.mouse.x = w.x;
+        this.mouse.y = w.y;
+        this.mouse.inside =
+          touch.clientX >= rect.left &&
+          touch.clientX <= rect.right &&
+          touch.clientY >= rect.top &&
+          touch.clientY <= rect.bottom;
+
+        if (this.isDragging) {
+          const dx = sx - this.dragStart.sx;
+          const dy = sy - this.dragStart.sy;
+          const prevOriginX = this.originX;
+          const prevOriginY = this.originY;
+          this.originX = this.dragStart.ox - dx / this.scaleX;
+          this.originY = this.dragStart.oy + dy / this.scaleY;
+          this.inertia.vx = (this.originX - prevOriginX);
+          this.inertia.vy = (this.originY - prevOriginY);
+          this.requestRedraw();
+        }
+      }, { passive: false });
+
+      window.addEventListener('touchend', (e) => {
+        if (this.isDragging && this.enableInertia) {
+          this.inertia.active = true;
+        }
+        this.isDragging = false;
+        this.mouse.inside = false;
+        this.requestRedraw();
+      }, { passive: false });
+
+      // Optional: Handle touch cancel (e.g., if user switches apps)
+      window.addEventListener('touchcancel', (e) => {
+        this.isDragging = false;
+        this.inertia.active = false;
+        this.mouse.inside = false;
+      }, { passive: false });
     }
 
    resetView() {
