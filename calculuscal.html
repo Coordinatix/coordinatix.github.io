@@ -287,6 +287,16 @@ select,
   background: var(--glass2);
   border-color: var(--accent);
 }
+.math-suggestion[title="Backspace"],
+.math-suggestion[title="Clear field"] {
+  background: rgba(255, 92, 124, 0.1);  
+  border-color: rgba(242, 8, 54, 0.838);
+}
+.math-suggestion[title="Backspace"]:hover,
+.math-suggestion[title="Clear field"]:hover {
+  background: rgba(255, 92, 125, 0.61);
+  border-color: var(--danger);
+}
 
 .math-keyboard-toggle {
   position: absolute;
@@ -906,9 +916,10 @@ header .chip {
     { latex: 'e^x', title: 'Exponential' },
     { latex: '\\sin(x)', title: 'Sine' },
     { latex: '\\cos(x)', title: 'Cosine' },
-    { latex: 'x', title: 'x' },
-    { latex: 'y', title: 'y' },
-    { latex: '|x|', title: 'Absolute value' }
+    
+    // NEW: Utility buttons for user convenience
+  { latex: 'DEL', display: '⌫', title: 'Backspace' },
+  { latex: 'CLR', display: 'Clear', title: 'Clear field' }
   ];
 
   // Advanced mathematical functions for keyboard (with uppercase letters added)
@@ -956,6 +967,18 @@ header .chip {
   { latex: 'e^{}', type: 'template', display: 'e^x' },
   { latex: '\\exp', type: 'function', display: 'exp' },
   { latex: '\\pi', type: 'constant', display: 'π' },
+
+  //Dumb enough to forgot to put numbers earlier
+  { latex: '0', type: 'number', display: '0' },
+  { latex: '1', type: 'number', display: '1' },
+  { latex: '2', type: 'number', display: '2' },
+  { latex: '3', type: 'number', display: '3' },
+  { latex: '4', type: 'number', display: '4' },
+  { latex: '5', type: 'number', display: '5' },
+  { latex: '6', type: 'number', display: '6' },
+  { latex: '7', type: 'number', display: '7' },
+  { latex: '8', type: 'number', display: '8' },
+  { latex: '9', type: 'number', display: '9' },
 
   // Latin Alphabet Lowercase (variables - italic in math)
   { latex: 'a', type: 'letter', display: 'a' },
@@ -1099,17 +1122,33 @@ header .chip {
   if (suggestionContainer) {
     console.log('Suggestions container found');
     suggestions.forEach(suggestion => {
-      const btn = document.createElement('button');
-      btn.className = 'math-suggestion';
-      btn.innerHTML = `$${suggestion.latex}$`;
-      btn.title = suggestion.title;
-      btn.onclick = () => {
-        mathField.write(suggestion.latex);
-        mathField.focus();
-      };
-      suggestionContainer.appendChild(btn);
-      katex.render(suggestion.latex, btn, { throwOnError: false });
-    });
+  const btn = document.createElement('button');
+  btn.className = 'math-suggestion';
+  btn.title = suggestion.title;
+  
+  // NEW: Special rendering for utilities (if display exists)
+  if (suggestion.display) {
+    btn.textContent = suggestion.display;  // Use plain text/emoji (no KaTeX)
+  } else {
+    // Original: Math suggestions
+    btn.innerHTML = `$${suggestion.latex}$`;
+    katex.render(suggestion.latex, btn, { throwOnError: false });
+  }
+  
+  // UPDATED: Special onclick for utilities
+  btn.onclick = () => {
+    if (suggestion.latex === 'DEL') {
+      mathField.keystroke('Backspace');  // Backspace action
+    } else if (suggestion.latex === 'CLR') {
+      mathField.latex('');  // Clear action
+    } else {
+      mathField.write(suggestion.latex);  // Insert LaTeX for math suggestions
+    }
+    mathField.focus();
+  };
+  
+  suggestionContainer.appendChild(btn);
+});
     console.log('Suggestions initialized');
   } else {
     console.error('Suggestions container not found!');
