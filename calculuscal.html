@@ -1010,6 +1010,8 @@ header .chip {
       this.series = [];
       this.legend = { show: true, position: 'top-right' };
       this.tooltip = { show: true, padding: 8, font: '12px sans-serif' };
+      this.isPinching = false;
+      this.lastTouchDistance = 0;
       this.needsRedraw = true;
       this.anim = null;
 
@@ -1062,137 +1064,219 @@ header .chip {
     }
 
     attachEvents() {
-      const c = this.canvas;
-      c.addEventListener('mousedown', (e) => {
-        this.isDragging = true;
-        this.inertia.active = false;
-        const rect = c.getBoundingClientRect();
-        const sx = e.clientX - rect.left;
-        const sy = e.clientY - rect.top;
-        this.dragStart = { sx, sy, ox: this.originX, oy: this.originY };
-      });
+  const c = this.canvas;
 
-      window.addEventListener('mousemove', (e) => {
-        const rect = c.getBoundingClientRect();
-        const sx = e.clientX - rect.left;
-        const sy = e.clientY - rect.top;
-        this.mouse.sx = sx;
-        this.mouse.sy = sy;
-        const w = this.screenToWorld(sx, sy);
-        this.mouse.x = w.x;
-        this.mouse.y = w.y;
-        this.mouse.inside =
-          e.clientX >= rect.left &&
-          e.clientX <= rect.right &&
-          e.clientY >= rect.top &&
-          e.clientY <= rect.bottom;
+  // Mouse events (unchanged)
+  c.addEventListener('mousedown', (e) => {
+    this.isDragging = true;
+    this.inertia.active = false;
+    const rect = c.getBoundingClientRect();
+    const sx = e.clientX - rect.left;
+    const sy = e.clientY - rect.top;
+    this.dragStart = { sx, sy, ox: this.originX, oy: this.originY };
+  });
 
-        if (this.isDragging) {
-          const dx = sx - this.dragStart.sx;
-          const dy = sy - this.dragStart.sy;
-          const prevOriginX = this.originX;
-          const prevOriginY = this.originY;
-          this.originX = this.dragStart.ox - dx / this.scaleX;
-          this.originY = this.dragStart.oy + dy / this.scaleY;
-          this.inertia.vx = (this.originX - prevOriginX);
-          this.inertia.vy = (this.originY - prevOriginY);
-          this.requestRedraw();
-        }
-      });
+  window.addEventListener('mousemove', (e) => {
+    const rect = c.getBoundingClientRect();
+    const sx = e.clientX - rect.left;
+    const sy = e.clientY - rect.top;
+    this.mouse.sx = sx;
+    this.mouse.sy = sy;
+    const w = this.screenToWorld(sx, sy);
+    this.mouse.x = w.x;
+    this.mouse.y = w.y;
+    this.mouse.inside =
+      e.clientX >= rect.left &&
+      e.clientX <= rect.right &&
+      e.clientY >= rect.top &&
+      e.clientY <= rect.bottom;
 
-      window.addEventListener('mouseup', () => {
-        if (this.isDragging && this.enableInertia) {
-          this.inertia.active = true;
-        }
-        this.isDragging = false;
-      });
+    if (this.isDragging) {
+      const dx = sx - this.dragStart.sx;
+      const dy = sy - this.dragStart.sy;
+      const prevOriginX = this.originX;
+      const prevOriginY = this.originY;
+      this.originX = this.dragStart.ox - dx / this.scaleX;
+      this.originY = this.dragStart.oy + dy / this.scaleY;
+      this.inertia.vx = (this.originX - prevOriginX);
+      this.inertia.vy = (this.originY - prevOriginY);
+      this.requestRedraw();
+    }
+  });
 
-      c.addEventListener('mouseleave', () => {
-        this.mouse.inside = false;
-        this.requestRedraw();
-      });
+  window.addEventListener('mouseup', () => {
+    if (this.isDragging && this.enableInertia) {
+      this.inertia.active = true;
+    }
+    this.isDragging = false;
+  });
 
-      c.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        const rect = c.getBoundingClientRect();
-        const sx = e.clientX - rect.left;
-        const sy = e.clientY - rect.top;
-        const { x: wx, y: wy } = this.screenToWorld(sx, sy);
-        const dir = Math.sign(e.deltaY);
-        const factor = Math.pow(this.zoomFactorPerWheel, dir);
-        const newScaleX = this.clamp(this.scaleX / factor, this.minScale, this.maxScale);
-        const newScaleY = this.clamp(this.scaleY / factor, this.minScale, this.maxScale);
-        this.originX = wx - sx / newScaleX;
-        this.originY = wy + sy / newScaleY;
+  c.addEventListener('mouseleave', () => {
+    this.mouse.inside = false;
+    this.requestRedraw();
+  });
+
+  // Mouse wheel zoom (in/out) - unchanged, already supports zoom out on scroll down
+  c.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const rect = c.getBoundingClientRect();
+    const sx = e.clientX - rect.left;
+    const sy = e.clientY - rect.top;
+    const { x: wx, y: wy } = this.screenToWorld(sx, sy);
+    const dir = Math.sign(e.deltaY);
+    const factor = Math.pow(this.zoomFactorPerWheel, dir);
+    const newScaleX = this.clamp(this.scaleX / factor, this.minScale, this.maxScale);
+    const newScaleY = this.clamp(this.scaleY / factor, this.minScale, this.maxScale);
+    this.originX = wx - sx / newScaleX;
+    this.originY = wy + sy / newScaleY;
+    this.scaleX = newScaleX;
+    this.scaleY = newScaleY;
+    this.inertia.active = false;
+    this.requestRedraw();
+  }, { passive: false });
+
+  c.addEventListener('dblclick', () => {
+    this.resetView();
+  });
+
+  // Touch events (fixed pinch-to-zoom for in/out)
+  c.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    const touches = e.touches;
+    const rect = c.getBoundingClientRect();
+
+    if (touches.length === 1) {
+      // Single touch: Start drag
+      const touch = touches[0];
+      const sx = touch.clientX - rect.left;
+      const sy = touch.clientY - rect.top;
+      this.isDragging = true;
+      this.isPinching = false;
+      this.inertia.active = false;
+      this.lastTouchDistance = 0;  // Reset for safety
+      this.dragStart = { sx, sy, ox: this.originX, oy: this.originY };
+    } else if (touches.length === 2) {
+      // Two touches: Start pinch
+      this.isPinching = true;
+      this.isDragging = false;
+      this.inertia.active = false;
+      const touch1 = touches[0];
+      const touch2 = touches[1];
+      const sx1 = touch1.clientX - rect.left;
+      const sy1 = touch1.clientY - rect.top;
+      const sx2 = touch2.clientX - rect.left;
+      const sy2 = touch2.clientY - rect.top;
+      this.lastTouchDistance = Math.hypot(sx2 - sx1, sy2 - sy1);
+      if (this.lastTouchDistance === 0) this.lastTouchDistance = 1;  // Avoid div0
+    }
+    // Ignore >2 touches
+  }, { passive: false });
+
+  window.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    const touches = e.touches;
+    const rect = c.getBoundingClientRect();
+
+    if (touches.length === 1 && this.isDragging) {
+      // Single touch: Continue drag (unchanged)
+      const touch = touches[0];
+      const sx = touch.clientX - rect.left;
+      const sy = touch.clientY - rect.top;
+      this.mouse.sx = sx;
+      this.mouse.sy = sy;
+      const w = this.screenToWorld(sx, sy);
+      this.mouse.x = w.x;
+      this.mouse.y = w.y;
+      this.mouse.inside =
+        touch.clientX >= rect.left &&
+        touch.clientX <= rect.right &&
+        touch.clientY >= rect.top &&
+        touch.clientY <= rect.bottom;
+
+      const dx = sx - this.dragStart.sx;
+      const dy = sy - this.dragStart.sy;
+      const prevOriginX = this.originX;
+      const prevOriginY = this.originY;
+      this.originX = this.dragStart.ox - dx / this.scaleX;
+      this.originY = this.dragStart.oy + dy / this.scaleY;
+      this.inertia.vx = (this.originX - prevOriginX);
+      this.inertia.vy = (this.originY - prevOriginY);
+      this.requestRedraw();
+    } else if (touches.length === 2 && this.isPinching) {
+      // FIXED: Two touches - Pinch zoom (in/out toward midpoint)
+      const touch1 = touches[0];
+      const touch2 = touches[1];
+      const sx1 = touch1.clientX - rect.left;
+      const sy1 = touch1.clientY - rect.top;
+      const sx2 = touch2.clientX - rect.left;
+      const sy2 = touch2.clientY - rect.top;
+      const currentDistance = Math.hypot(sx2 - sx1, sy2 - sy1);
+
+      const factor = currentDistance / this.lastTouchDistance;
+      if (Math.abs(factor - 1) > 0.01) {  // Threshold for noticeable change
+        // Compute current pinch midpoint (screen)
+        const centerSx = (sx1 + sx2) / 2;
+        const centerSy = (sy1 + sy2) / 2;
+
+        // World position of midpoint at OLD scale
+        const { x: wx, y: wy } = this.screenToWorld(centerSx, centerSy);
+
+        // Apply factor: >1 = zoom in (larger scale), <1 = zoom out (smaller scale)
+        const newScaleX = this.clamp(this.scaleX * factor, this.minScale, this.maxScale);
+        const newScaleY = this.clamp(this.scaleY * factor, this.minScale, this.maxScale);
+
+        // Adjust origin to keep midpoint fixed
+        this.originX = wx - centerSx / newScaleX;
+        this.originY = wy + centerSy / newScaleY;
         this.scaleX = newScaleX;
         this.scaleY = newScaleY;
         this.inertia.active = false;
         this.requestRedraw();
-      }, { passive: false });
+      }
 
-      c.addEventListener('dblclick', () => {
-        this.resetView();
-      });
-
-       c.addEventListener('touchstart', (e) => {
-        if (e.touches.length > 1) return; // Ignore multi-touch for now
-        e.preventDefault();
-        const touch = e.changedTouches[0];
-        const rect = c.getBoundingClientRect();
-        const sx = touch.clientX - rect.left;
-        const sy = touch.clientY - rect.top;
-        this.isDragging = true;
-        this.inertia.active = false;
-        this.dragStart = { sx, sy, ox: this.originX, oy: this.originY };
-      }, { passive: false });
-
-      window.addEventListener('touchmove', (e) => {
-        if (!this.isDragging || e.touches.length > 1) return;
-        e.preventDefault();
-        const touch = e.changedTouches[0];
-        const rect = c.getBoundingClientRect();
-        const sx = touch.clientX - rect.left;
-        const sy = touch.clientY - rect.top;
-        this.mouse.sx = sx;
-        this.mouse.sy = sy;
-        const w = this.screenToWorld(sx, sy);
-        this.mouse.x = w.x;
-        this.mouse.y = w.y;
-        this.mouse.inside =
-          touch.clientX >= rect.left &&
-          touch.clientX <= rect.right &&
-          touch.clientY >= rect.top &&
-          touch.clientY <= rect.bottom;
-
-        if (this.isDragging) {
-          const dx = sx - this.dragStart.sx;
-          const dy = sy - this.dragStart.sy;
-          const prevOriginX = this.originX;
-          const prevOriginY = this.originY;
-          this.originX = this.dragStart.ox - dx / this.scaleX;
-          this.originY = this.dragStart.oy + dy / this.scaleY;
-          this.inertia.vx = (this.originX - prevOriginX);
-          this.inertia.vy = (this.originY - prevOriginY);
-          this.requestRedraw();
-        }
-      }, { passive: false });
-
-      window.addEventListener('touchend', (e) => {
-        if (this.isDragging && this.enableInertia) {
-          this.inertia.active = true;
-        }
-        this.isDragging = false;
-        this.mouse.inside = false;
-        this.requestRedraw();
-      }, { passive: false });
-
-      // Optional: Handle touch cancel (e.g., if user switches apps)
-      window.addEventListener('touchcancel', (e) => {
-        this.isDragging = false;
-        this.inertia.active = false;
-        this.mouse.inside = false;
-      }, { passive: false });
+      this.lastTouchDistance = currentDistance;
     }
+    // Ignore other cases
+  }, { passive: false });
+
+  window.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    const remainingTouches = e.touches.length;
+    if (remainingTouches === 0) {
+      // End of touches: Apply inertia if dragging
+      if (this.isDragging && this.enableInertia) {
+        this.inertia.active = true;
+      }
+      this.isDragging = false;
+      this.isPinching = false;
+      this.lastTouchDistance = 0;
+      this.mouse.inside = false;
+      this.requestRedraw();
+    } else if (remainingTouches === 1 && this.isPinching) {
+      // Transition: One finger left after pinch → start drag with it
+      this.isPinching = false;
+      this.lastTouchDistance = 0;
+      const touch = e.touches[0];
+      const rect = c.getBoundingClientRect();
+      const sx = touch.clientX - rect.left;
+      const sy = touch.clientY - rect.top;
+      this.isDragging = true;
+      this.inertia.active = false;
+      this.dragStart = { sx, sy, ox: this.originX, oy: this.originY };
+    }
+    // For >1 remaining, next touchstart will handle
+  }, { passive: false });
+
+  // Touch cancel (e.g., app switch)
+  window.addEventListener('touchcancel', (e) => {
+    e.preventDefault();
+    this.isDragging = false;
+    this.isPinching = false;
+    this.lastTouchDistance = 0;
+    this.inertia.active = false;
+    this.mouse.inside = false;
+  }, { passive: false });
+}
 
    resetView() {
   this.originX = 0;
@@ -1951,6 +2035,8 @@ function latexToMathJS(latex) {
   
   return expr;
 }
+
+
 
   // Utility: parse a value with math.js
   function parseValue(str) {
