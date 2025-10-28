@@ -1173,7 +1173,6 @@ header .chip {
   }, { passive: false });
 
   window.addEventListener('touchmove', (e) => {
-    if (!(this.isDragging || this.isPinching)) return;
     e.preventDefault();
     const touches = e.touches;
     const rect = c.getBoundingClientRect();
@@ -1241,7 +1240,6 @@ header .chip {
   }, { passive: false });
 
   window.addEventListener('touchend', (e) => {
-    if (!(this.isDragging || this.isPinching)) return;
     e.preventDefault();
     const remainingTouches = e.touches.length;
     if (remainingTouches === 0) {
@@ -1271,7 +1269,6 @@ header .chip {
 
   // Touch cancel (e.g., app switch)
   window.addEventListener('touchcancel', (e) => {
-    if (!(this.isDragging || this.isPinching)) return;
     e.preventDefault();
     this.isDragging = false;
     this.isPinching = false;
@@ -1978,36 +1975,75 @@ header .chip {
   console.log('DOMContentLoaded fully executed');
 });
   
-  // Enhanced LaTeX to math.js converter
-function latexToMathJS(latex) {
-  let expr = latex
-    // Basic operators
-    .replace(/\\cdot|\\times/g, '*')
-    .replace(/\\div/g, '/')
-    .replace(/\\frac{([^}]*?)}{([^}]*?)}/g, '($1)/($2)')
-    .replace(/\\sqrt(?:\[[^}]+\])?{([^}]*)}/g, 'sqrt($1)')
-    .replace(/([a-zA-Z0-9_.]+)\^{([^}]*)}/g, '$1^($2)')
-    .replace(/([a-zA-Z0-9_.]+)_([^}]*)/g, '$1_$2')
-    
-    // Trig and hyperbolic functions
+ function latexToMathJS(latex) {
+  let expr = latex;
+
+  // 1. Remove \left and \right - they are presentation-only in LaTeX
+  expr = expr.replace(/\\left|\\right/g, '');
+
+  // 2. Handle specific LaTeX structures that convert to distinct Math.js functions/syntax
+  //    Order matters: longer/more specific patterns (like `\sqrt[n]{}`) first.
+
+  // nthRoot: \sqrt[n]{arg} -> nthRoot(arg, n)
+  expr = expr.replace(/\\sqrt\[([^\]]+)\]{([^}]*)}/g, 'nthRoot($2, $1)');
+  // Square root: \sqrt{arg} -> sqrt(arg)
+  expr = expr.replace(/\\sqrt{([^}]*)}/g, 'sqrt($1)');
+
+  // Logarithms with base: \log_{base}{arg} -> log(arg, base)
+  expr = expr.replace(/\\log_\{([^}]+)\}{([^}]*)}/g, 'log($2, $1)');
+
+  // Fractions: \frac{num}{den} -> (num)/(den)
+  expr = expr.replace(/\\frac{([^}]*?)}{([^}]*?)}/g, '($1)/($2)');
+
+  // Powers with braces: base^{exponent} -> base^(exponent)
+  // This is crucial for `\cos^2(x)` which becomes `\cos^(2)(x)`. The implicit mult will fix later.
+  expr = expr.replace(/([a-zA-Z0-9_.]+)\^{([^}]*)}/g, '$1^($2)');
+
+  // Subscripts: base_index -> base_index (Math.js accepts `_` in identifiers)
+  expr = expr.replace(/([a-zA-Z0-9_.]+)_([^}]*)/g, '$1_$2');
+
+  // Matrix handling: \begin{pmatrix} ... \end{pmatrix} -> [[...],[...]]
+  // This is a simplified parser. It replaces `&` with `,` and `\\` with `,` for Math.js array format.
+  // Braces `{}` will be converted to `()` in a later step.
+  expr = expr.replace(/\\begin\{pmatrix\}/g, '[');
+  expr = expr.replace(/\\end\{pmatrix\}/g, ']');
+  expr = expr.replace(/\\{2}/g, ','); // New row separator
+  expr = expr.replace(/&/g, ',');    // Column separator
+
+  // 3. Convert standard LaTeX function commands to Math.js names.
+  //    Prioritize patterns that capture `{}` arguments to ensure `f{x}` becomes `f(x)`.
+  //    \func{arg} -> func(arg) for common trig, hyperbolic, log, exp functions.
+  expr = expr.replace(/\\(sin|cos|tan|csc|sec|cot|sinh|cosh|tanh|csch|sech|coth|ln|log|exp){([^}]*)}/g, '$1($2)');
+  
+  //    Then handle commands without explicit braces (e.g., `\sin x` or just `\sin`)
+  expr = expr
     .replace(/\\sin/g, 'sin')
     .replace(/\\cos/g, 'cos')
     .replace(/\\tan/g, 'tan')
     .replace(/\\csc/g, 'csc')
+    .replace(/\\sec/g, 'sec')
+    .replace(/\\cot/g, 'cot')
     .replace(/\\sinh/g, 'sinh')
     .replace(/\\cosh/g, 'cosh')
     .replace(/\\tanh/g, 'tanh')
-    
-    // Logs and exp
-    .replace(/\\ln/g, 'log')
-    .replace(/\\log/g, 'log')
-    .replace(/\\exp/g, 'exp')
-    
-    // Constants
+    .replace(/\\coth/g, 'coth')
+    .replace(/\\sech/g, 'sech')
+    .replace(/\\csch/g, 'csch')
+    .replace(/\\ln/g, 'log')   // Math.js `log` is natural log by default
+    .replace(/\\log/g, 'log')   // Math.js `log` is natural log by default
+    .replace(/\\exp/g, 'exp');  // Math.js `exp` is `e^x`
+
+  // 4. Convert other basic operators and constants
+  expr = expr
+    .replace(/\\cdot|\\times/g, '*')
+    .replace(/\\div/g, '/')
     .replace(/\\pi/g, 'pi')
     .replace(/\\infty/g, 'Infinity')
-    
-    // Greek letters
+    .replace(/\\pm/g, '+/-') // Math.js doesn't directly support `\pm` for evaluation; converts to string
+    .replace(/\\mp/g, '-/+'); // Similarly for `\mp`
+
+  // 5. Convert Greek letters to variable names (Math.js variable names are alphanumeric + underscore)
+  expr = expr
     .replace(/\\alpha/g, 'alpha')
     .replace(/\\beta/g, 'beta')
     .replace(/\\gamma/g, 'gamma')
@@ -2016,28 +2052,64 @@ function latexToMathJS(latex) {
     .replace(/\\lambda/g, 'lambda')
     .replace(/\\mu/g, 'mu')
     .replace(/\\phi/g, 'phi')
-    
-    // Advanced symbols
-    .replace(/\\sum/g, 'sum')
-    .replace(/\\int/g, 'int')
-    .replace(/\\lim/g, 'lim')
-    .replace(/\\partial/g, 'partial')
-    .replace(/\\prod/g, 'prod')
-    .replace(/\\cup/g, 'cup')
-    .replace(/\\cap/g, 'cap')
-    .replace(/\\exists/g, 'exists')
-    .replace(/\\approx/g, '~')
-    .replace(/\\neq/g, '!=')
-    
-    // Remove braces and extras
-    .replace(/\\left|\\right/g, '')
-    .replace(/\{|\}/g, '()')
-    .trim();
-  
-  expr = expr.replace(/\\begin\{pmatrix\}/g, '[').replace(/\\end\{pmatrix\}/g, ']');
-  
-  return expr;
+    .replace(/\\rho/g, 'rho')
+    .replace(/\\sigma/g, 'sigma')
+    .replace(/\\tau/g, 'tau')
+    .replace(/\\psi/g, 'psi')
+    .replace(/\\omega/g, 'omega');
+
+  // 6. Convert advanced symbols (some may require specific Math.js functions or context, or not be directly evaluable)
+  expr = expr
+    .replace(/\\sum/g, 'sum')    // Math.js `sum()` is for arrays, not symbolic summation
+    .replace(/\\int/g, 'integral') // No direct symbolic integral function in core Math.js
+    .replace(/\\lim/g, 'limit')   // No direct symbolic limit function in core Math.js
+    .replace(/\\partial/g, 'partial') // No direct symbolic partial derivatives in core Math.js
+    .replace(/\\prod/g, 'prod')   // Math.js `prod()` is for arrays
+    .replace(/\\cup/g, 'union')   // Set operations (might need custom handling)
+    .replace(/\\cap/g, 'intersect') // Set operations (might need custom handling)
+    .replace(/\\exists/g, 'exists') // Logic operator (might need custom handling)
+    .replace(/\\approx/g, '~~')   // Approximate equality (Math.js `~` is bitwise NOT, `~~` is safe)
+    .replace(/\\neq/g, '!=');
+
+  // 7. Implicit Multiplication (Crucial for expressions like `2sin(x)` and `x^2sin(x)`)
+  // This must be done *after* all LaTeX commands are converted to Math.js names and `^` is handled.
+  // The goal is to insert `*` where Math.js expects it but LaTeX omits it.
+  // Regexes are ordered from most common/least ambiguous to more specific.
+
+  // Helper patterns for identifying term boundaries for implicit multiplication
+  const IDENTIFIER_START = '[a-zA-Z_]'; // Start of a variable or function name
+  const DIGIT = '\\d';                   // A digit
+  const PAREN_OPEN = '\\(';              // Opening parenthesis
+  const PAREN_CLOSE = '\\)';             // Closing parenthesis
+  const BRACKET_OPEN = '\\[';            // Opening bracket
+  const BRACKET_CLOSE = '\\]';           // Closing bracket
+  const BRACE_OPEN = '\\{';              // Opening brace
+  const BRACE_CLOSE = '\\}';             // Closing brace
+
+  // a) A digit or constant (like `pi`, `Infinity`) immediately followed by an identifier, or an opening parenthesis/bracket/brace.
+  //    Examples: `2x`, `2sin(x)`, `2(x+y)`, `2[x]`, `pi(x)`
+  expr = expr.replace(new RegExp(`(${DIGIT}|\\bpi\\b|\\binfinity\\b)(?=\\s*(?:${IDENTIFIER_START}|${PAREN_OPEN}|${BRACKET_OPEN}|${BRACE_OPEN}))`, 'g'), '$1*');
+
+  // b) A closing parenthesis/bracket/brace immediately followed by an identifier, or an opening parenthesis/bracket/brace.
+  //    Examples: `(x)y`, `sin(x)cos(y)`, `(x)(y)`, `[a]b`
+  expr = expr.replace(new RegExp(`(${PAREN_CLOSE}|${BRACKET_CLOSE}|${BRACE_CLOSE})(?=\\s*(?:${IDENTIFIER_START}|${PAREN_OPEN}|${BRACKET_OPEN}|${BRACE_OPEN}))`, 'g'), '$1*');
+
+  // c) A variable (single letter or converted Greek) immediately followed by a function name, or an opening parenthesis/bracket/brace.
+  //    This rule handles cases like `x sin(y)` (variable `x` followed by function `sin`) or `alpha(beta)`.
+  //    Math.js automatically handles `xy` as `x*y` so we don't explicitly add `*` for variable-variable.
+  //    Function names are hardcoded in the lookahead for precision.
+  const functionNamesPattern = '(?:sin|cos|tan|csc|sec|cot|sinh|cosh|tanh|coth|sech|csch|log|exp|sqrt|nthRoot)';
+  expr = expr.replace(new RegExp(`(${IDENTIFIER_START})(?=\\s*(?:${functionNamesPattern}|${PAREN_OPEN}|${BRACKET_OPEN}|${BRACE_OPEN}))`, 'g'), '$1*');
+
+  // 8. Final brace cleanup: Replace any remaining `{}` with `()`
+  //    This step ensures all arguments are wrapped in `()` which Math.js expects.
+  //    It should be done after implicit multiplication so `{}` can act as delimiters for regexes if needed.
+  expr = expr.replace(/\{|\}/g, '()');
+
+  // Trim whitespace
+  return expr.trim();
 }
+
 
 
 
