@@ -1173,6 +1173,7 @@ header .chip {
   }, { passive: false });
 
   window.addEventListener('touchmove', (e) => {
+    if (!(this.isDragging || this.isPinching)) return;
     e.preventDefault();
     const touches = e.touches;
     const rect = c.getBoundingClientRect();
@@ -1240,6 +1241,7 @@ header .chip {
   }, { passive: false });
 
   window.addEventListener('touchend', (e) => {
+    if (!(this.isDragging || this.isPinching)) return;
     e.preventDefault();
     const remainingTouches = e.touches.length;
     if (remainingTouches === 0) {
@@ -1269,6 +1271,7 @@ header .chip {
 
   // Touch cancel (e.g., app switch)
   window.addEventListener('touchcancel', (e) => {
+    if (!(this.isDragging || this.isPinching)) return;
     e.preventDefault();
     this.isDragging = false;
     this.isPinching = false;
@@ -1975,141 +1978,97 @@ header .chip {
   console.log('DOMContentLoaded fully executed');
 });
   
- function latexToMathJS(latex) {
-  let expr = latex;
+  // Enhanced LaTeX to math.js converter (recursive for nested structures)
+function latexToMathJS(latex) {
+  function convert(expr) {
+    if (typeof expr !== 'string') return expr;
 
-  // 1. Remove \left and \right - they are presentation-only in LaTeX
-  expr = expr.replace(/\\left|\\right/g, '');
+    let s = expr
+      // Simple operators and delimiters
+      .replace(/\\cdot|\\times/g, '*')
+      .replace(/\\div/g, '/')
+      .replace(/\\pm/g, '+/-')
+      .replace(/\\mp/g, '-/+')
+      .replace(/\\approx/g, '~')
+      .replace(/\\neq/g, '!=')
+      .replace(/\\infty/g, 'Infinity')
+      .replace(/\\partial/g, 'd')  // Approximate
+      .replace(/\\left|\\right/g, '')
+      // Advanced symbols: fallback to safe values to avoid parse errors
+      .replace(/\\sum|\\int|\\lim|\\prod|\\exists|\\cup|\\cap|\\begin\{[^}]+\}|\\end\{[^}]+\}/g, '0')
 
-  // 2. Handle specific LaTeX structures that convert to distinct Math.js functions/syntax
-  //    Order matters: longer/more specific patterns (like `\sqrt[n]{}`) first.
+      // Trigonometric functions
+      .replace(/\\sin/g, 'sin')
+      .replace(/\\cos/g, 'cos')
+      .replace(/\\tan/g, 'tan')
+      .replace(/\\csc/g, 'csc')
+      .replace(/\\sec/g, 'sec')
+      .replace(/\\cot/g, 'cot')
+      .replace(/\\arcsin/g, 'asin')
+      .replace(/\\arccos/g, 'acos')
+      .replace(/\\arctan/g, 'atan')
 
-  // nthRoot: \sqrt[n]{arg} -> nthRoot(arg, n)
-  expr = expr.replace(/\\sqrt\[([^\]]+)\]{([^}]*)}/g, 'nthRoot($2, $1)');
-  // Square root: \sqrt{arg} -> sqrt(arg)
-  expr = expr.replace(/\\sqrt{([^}]*)}/g, 'sqrt($1)');
+      // Hyperbolic functions
+      .replace(/\\sinh/g, 'sinh')
+      .replace(/\\cosh/g, 'cosh')
+      .replace(/\\tanh/g, 'tanh')
 
-  // Logarithms with base: \log_{base}{arg} -> log(arg, base)
-  expr = expr.replace(/\\log_\{([^}]+)\}{([^}]*)}/g, 'log($2, $1)');
+      // Log and exp
+      .replace(/\\ln/g, 'log')
+      .replace(/\\log/g, (match, offset, string) => {
+        // Check if followed by base
+        const baseMatch = string.slice(offset).match(/\\log_\{([^}]+)\}\{([^}]+)\}/);
+        if (baseMatch) {
+          return `log(${convert(baseMatch[2])}, ${convert(baseMatch[1])})`;
+        }
+        return 'log';  // Natural log if no base
+      })
+      .replace(/\\exp/g, 'exp')
 
-  // Fractions: \frac{num}{den} -> (num)/(den)
-  expr = expr.replace(/\\frac{([^}]*?)}{([^}]*?)}/g, '($1)/($2)');
+      // Recursive roots
+      .replace(/\\sqrt(\[([^{}]+)\])?\{([^}]+)\}/g, (m, bracket, n, arg) => {
+        const njs = convert(n || '2');
+        const argjs = convert(arg);
+        return njs === '2' ? `sqrt(${argjs})` : `pow(${argjs}, 1/${njs})`;
+      })
 
-  // Powers with braces: base^{exponent} -> base^(exponent)
-  // This is crucial for `\cos^2(x)` which becomes `\cos^(2)(x)`. The implicit mult will fix later.
-  expr = expr.replace(/([a-zA-Z0-9_.]+)\^{([^}]*)}/g, '$1^($2)');
+      // Recursive fractions
+      .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, (m, num, den) => {
+        const numjs = convert(num);
+        const denjs = convert(den);
+        return `(${numjs})/(${denjs})`;
+      })
 
-  // Subscripts: base_index -> base_index (Math.js accepts `_` in identifiers)
-  expr = expr.replace(/([a-zA-Z0-9_.]+)_([^}]*)/g, '$1_$2');
+      // Improved exponents (basic single-char base; users can paren complex)
+      .replace(/([a-zA-Z0-9πe])\^(\{?([^{}]+)\}?)/g, (m, base, br, exp) => {
+        const expjs = convert(exp || br);
+        return `${base}^(${expjs})`;
+      })
 
-  // Matrix handling: \begin{pmatrix} ... \end{pmatrix} -> [[...],[...]]
-  // This is a simplified parser. It replaces `&` with `,` and `\\` with `,` for Math.js array format.
-  // Braces `{}` will be converted to `()` in a later step.
-  expr = expr.replace(/\\begin\{pmatrix\}/g, '[');
-  expr = expr.replace(/\\end\{pmatrix\}/g, ']');
-  expr = expr.replace(/\\{2}/g, ','); // New row separator
-  expr = expr.replace(/&/g, ',');    // Column separator
+      // Constants
+      .replace(/\\pi/g, 'pi')
+      .replace(/e(?!\{)/g, 'e')  // e not followed by {
 
-  // 3. Convert standard LaTeX function commands to Math.js names.
-  //    Prioritize patterns that capture `{}` arguments to ensure `f{x}` becomes `f(x)`.
-  //    \func{arg} -> func(arg) for common trig, hyperbolic, log, exp functions.
-  expr = expr.replace(/\\(sin|cos|tan|csc|sec|cot|sinh|cosh|tanh|csch|sech|coth|ln|log|exp){([^}]*)}/g, '$1($2)');
-  
-  //    Then handle commands without explicit braces (e.g., `\sin x` or just `\sin`)
-  expr = expr
-    .replace(/\\sin/g, 'sin')
-    .replace(/\\cos/g, 'cos')
-    .replace(/\\tan/g, 'tan')
-    .replace(/\\csc/g, 'csc')
-    .replace(/\\sec/g, 'sec')
-    .replace(/\\cot/g, 'cot')
-    .replace(/\\sinh/g, 'sinh')
-    .replace(/\\cosh/g, 'cosh')
-    .replace(/\\tanh/g, 'tanh')
-    .replace(/\\coth/g, 'coth')
-    .replace(/\\sech/g, 'sech')
-    .replace(/\\csch/g, 'csch')
-    .replace(/\\ln/g, 'log')   // Math.js `log` is natural log by default
-    .replace(/\\log/g, 'log')   // Math.js `log` is natural log by default
-    .replace(/\\exp/g, 'exp');  // Math.js `exp` is `e^x`
+      // Greek letters to symbol names (math.js treats as symbols)
+      .replace(/\\alpha/g, 'alpha')
+      .replace(/\\beta/g, 'beta')
+      .replace(/\\gamma/g, 'gamma')
+      .replace(/\\delta/g, 'delta')
+      .replace(/\\theta/g, 'theta')
+      .replace(/\\lambda/g, 'lambda')
+      .replace(/\\mu/g, 'mu')
+      .replace(/\\phi/g, 'phi')
 
-  // 4. Convert other basic operators and constants
-  expr = expr
-    .replace(/\\cdot|\\times/g, '*')
-    .replace(/\\div/g, '/')
-    .replace(/\\pi/g, 'pi')
-    .replace(/\\infty/g, 'Infinity')
-    .replace(/\\pm/g, '+/-') // Math.js doesn't directly support `\pm` for evaluation; converts to string
-    .replace(/\\mp/g, '-/+'); // Similarly for `\mp`
+      // Strip remaining braces
+      .replace(/\{|\}/g, '')
 
-  // 5. Convert Greek letters to variable names (Math.js variable names are alphanumeric + underscore)
-  expr = expr
-    .replace(/\\alpha/g, 'alpha')
-    .replace(/\\beta/g, 'beta')
-    .replace(/\\gamma/g, 'gamma')
-    .replace(/\\delta/g, 'delta')
-    .replace(/\\theta/g, 'theta')
-    .replace(/\\lambda/g, 'lambda')
-    .replace(/\\mu/g, 'mu')
-    .replace(/\\phi/g, 'phi')
-    .replace(/\\rho/g, 'rho')
-    .replace(/\\sigma/g, 'sigma')
-    .replace(/\\tau/g, 'tau')
-    .replace(/\\psi/g, 'psi')
-    .replace(/\\omega/g, 'omega');
+      .trim();
 
-  // 6. Convert advanced symbols (some may require specific Math.js functions or context, or not be directly evaluable)
-  expr = expr
-    .replace(/\\sum/g, 'sum')    // Math.js `sum()` is for arrays, not symbolic summation
-    .replace(/\\int/g, 'integral') // No direct symbolic integral function in core Math.js
-    .replace(/\\lim/g, 'limit')   // No direct symbolic limit function in core Math.js
-    .replace(/\\partial/g, 'partial') // No direct symbolic partial derivatives in core Math.js
-    .replace(/\\prod/g, 'prod')   // Math.js `prod()` is for arrays
-    .replace(/\\cup/g, 'union')   // Set operations (might need custom handling)
-    .replace(/\\cap/g, 'intersect') // Set operations (might need custom handling)
-    .replace(/\\exists/g, 'exists') // Logic operator (might need custom handling)
-    .replace(/\\approx/g, '~~')   // Approximate equality (Math.js `~` is bitwise NOT, `~~` is safe)
-    .replace(/\\neq/g, '!=');
+    return s;
+  }
 
-  // 7. Implicit Multiplication (Crucial for expressions like `2sin(x)` and `x^2sin(x)`)
-  // This must be done *after* all LaTeX commands are converted to Math.js names and `^` is handled.
-  // The goal is to insert `*` where Math.js expects it but LaTeX omits it.
-  // Regexes are ordered from most common/least ambiguous to more specific.
-
-  // Helper patterns for identifying term boundaries for implicit multiplication
-  const IDENTIFIER_START = '[a-zA-Z_]'; // Start of a variable or function name
-  const DIGIT = '\\d';                   // A digit
-  const PAREN_OPEN = '\\(';              // Opening parenthesis
-  const PAREN_CLOSE = '\\)';             // Closing parenthesis
-  const BRACKET_OPEN = '\\[';            // Opening bracket
-  const BRACKET_CLOSE = '\\]';           // Closing bracket
-  const BRACE_OPEN = '\\{';              // Opening brace
-  const BRACE_CLOSE = '\\}';             // Closing brace
-
-  // a) A digit or constant (like `pi`, `Infinity`) immediately followed by an identifier, or an opening parenthesis/bracket/brace.
-  //    Examples: `2x`, `2sin(x)`, `2(x+y)`, `2[x]`, `pi(x)`
-  expr = expr.replace(new RegExp(`(${DIGIT}|\\bpi\\b|\\binfinity\\b)(?=\\s*(?:${IDENTIFIER_START}|${PAREN_OPEN}|${BRACKET_OPEN}|${BRACE_OPEN}))`, 'g'), '$1*');
-
-  // b) A closing parenthesis/bracket/brace immediately followed by an identifier, or an opening parenthesis/bracket/brace.
-  //    Examples: `(x)y`, `sin(x)cos(y)`, `(x)(y)`, `[a]b`
-  expr = expr.replace(new RegExp(`(${PAREN_CLOSE}|${BRACKET_CLOSE}|${BRACE_CLOSE})(?=\\s*(?:${IDENTIFIER_START}|${PAREN_OPEN}|${BRACKET_OPEN}|${BRACE_OPEN}))`, 'g'), '$1*');
-
-  // c) A variable (single letter or converted Greek) immediately followed by a function name, or an opening parenthesis/bracket/brace.
-  //    This rule handles cases like `x sin(y)` (variable `x` followed by function `sin`) or `alpha(beta)`.
-  //    Math.js automatically handles `xy` as `x*y` so we don't explicitly add `*` for variable-variable.
-  //    Function names are hardcoded in the lookahead for precision.
-  const functionNamesPattern = '(?:sin|cos|tan|csc|sec|cot|sinh|cosh|tanh|coth|sech|csch|log|exp|sqrt|nthRoot)';
-  expr = expr.replace(new RegExp(`(${IDENTIFIER_START})(?=\\s*(?:${functionNamesPattern}|${PAREN_OPEN}|${BRACKET_OPEN}|${BRACE_OPEN}))`, 'g'), '$1*');
-
-  // 8. Final brace cleanup: Replace any remaining `{}` with `()`
-  //    This step ensures all arguments are wrapped in `()` which Math.js expects.
-  //    It should be done after implicit multiplication so `{}` can act as delimiters for regexes if needed.
-  expr = expr.replace(/\{|\}/g, '()');
-
-  // Trim whitespace
-  return expr.trim();
+  return convert(latex);
 }
-
 
 
 
@@ -2124,17 +2083,35 @@ header .chip {
     return num;
   }
 
-// Make f(x): returns a JS function for numeric evaluation
+// Make f(x): returns a JS function for numeric evaluation (robust to unknown symbols)
 function compileFunction(expr, variable='x') {
-  const node = math.parse(expr);
+  let node;
+  try {
+    node = math.parse(expr);
+  } catch (e) {
+    throw new Error("Failed to parse expression: " + e.message);
+  }
   const code = node.compile();
+
+  // Extract unknown symbols (excluding variable and known constants)
+  const symbols = node.filter(function (n) {
+    return n.isSymbolNode && n.name !== variable && !['pi', 'e', 'Infinity'].includes(n.name);
+  }).map(n => n.name);
+  const uniqueSymbols = [...new Set(symbols)];
+
   return (x) => {
-    const scope = {};
-    scope[variable] = x;
-    const v = code.evaluate(scope);
-    const num = Number(v);
-    if (!isFinite(num)) throw new Error("f(x) returned non-finite number at x=" + x);
-    return num;
+    const scope = { [variable]: x, pi: Math.PI, e: Math.E };
+    // Set unknown symbols to 0 to avoid evaluation errors
+    uniqueSymbols.forEach(sym => { if (!scope.hasOwnProperty(sym)) scope[sym] = 0; });
+    try {
+      const v = code.evaluate(scope);
+      const num = Number(v);
+      if (!isFinite(num)) return NaN;  // Return NaN instead of throwing for continuity
+      return num;
+    } catch (evalErr) {
+      console.warn('Evaluation failed at x=' + x + ':', evalErr);
+      return NaN;
+    }
   };
 }
 
@@ -2170,8 +2147,8 @@ const S12 = Sa + Sb;
 const err = Math.abs(S12 - Sab);
 const tol = 15 * Math.max(absTol, relTol * Math.abs(S12));
 
-  if (err <= tol || depth >= maxDepth) {
-    return S12 + (S12 - Sab) / 15;
+  if (err <= tol || depth >= maxDepth || isNaN(S12)) {
+    return isNaN(S12) ? NaN : S12 + (S12 - Sab) / 15;
   }
   return recurse(a, fa, lm, flm, m, fm, Sa, depth + 1)
        + recurse(m, fm, rm, frm, b, fb, Sb, depth + 1);
@@ -2192,7 +2169,7 @@ function derivativeNumeric(f, x0) {
   const d1 = df(h);
   const d2 = df(h / 2);
   const rich = (4 * d2 - d1) / 3;
-  return rich;
+  return isNaN(rich) ? NaN : rich;
 }
 
 // Numeric limit of f(x) at x0
@@ -2204,10 +2181,10 @@ function limitNumeric(f, x0) {
     const hp = h / Math.pow(2, k);
     const left = f(x0 - hp);
     const right = f(x0 + hp);
-    if (!isFinite(left) || !isFinite(right)) continue;
+    if (!isFinite(left) || !isFinite(right) || isNaN(left) || isNaN(right)) continue;
     samples.push(0.5 * (left + right));
   }
-  if (!samples.length) throw new Error("Could not sample finite values near x0.");
+  if (!samples.length) return NaN;
   samples.sort((a,b)=>a-b);
   const trimmed = samples.slice(1, samples.length - 1);
   const arr = trimmed.length ? trimmed : samples;
@@ -2249,7 +2226,7 @@ if (displaySpan) {
 
 // Format number
 function fmtNumber(x) {
-  if (!isFinite(x)) return String(x);
+  if (!isFinite(x) || isNaN(x)) return 'NaN';
   const abs = Math.abs(x);
   if (abs !== 0 && (abs < 1e-4 || abs >= 1e6)) {
     return x.toExponential(8);
@@ -2345,7 +2322,15 @@ const originalLatex = mathField.latex();
         
         renderLatex(resultEl, resultLatex);
       } catch (err) {
-        throw new Error("Could not compute symbolic derivative: " + err.message);
+        // Fallback to numeric if x0 provided
+        if (x0Str) {
+          const x0 = parseValue(x0Str);
+          const df = derivativeNumeric(f, x0);
+          renderLatex(resultEl, `\\frac{d}{d${variable}}f(${variable}) \\approx ${fmtNumber(df)} \\; (at ${variable}=${fmtNumber(x0)})`);
+          errorEl.textContent = 'Symbolic derivative unavailable; using numeric approximation.';
+        } else {
+          throw new Error("Symbolic derivative failed and no x0 for numeric fallback: " + err.message);
+        }
       }
     } else if (op === 'differentiateNumeric') {
       if (!x0Str) throw new Error("Enter x0 for derivative.");
