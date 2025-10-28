@@ -16,6 +16,10 @@
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
   <!-- Math.js for parsing and symbolic derivative -->
   <script src="https://cdn.jsdelivr.net/npm/mathjs@12.4.1/lib/browser/math.js"></script>
+  <!-- Nerdamer for symbolic integration -->
+  <script src="https://nerdamer.com/nerdamer.core.js"></script>
+  <script src="https://nerdamer.com/Algebra.js"></script>
+  <script src="https://nerdamer.com/Calculus.js"></script>
 
   <style>
     :root {
@@ -879,7 +883,7 @@ header .chip {
   <div class="brand">
     <div class="logo" aria-hidden="true"></div>
     <div>
-      <h1>Calculex</h1>
+      <h1>Calculex (Beta)</h1>
       <p class="tagline">Differentiate, integrate, evaluate limits, and visualize functions.</p>
     </div>
   </div>
@@ -917,6 +921,7 @@ header .chip {
           <option value="evaluate">Evaluate 𝒇(𝓧₀)</option>
           <option value="differentiateSymbolic">Derivative (symbolic)</option>
           <option value="differentiateNumeric">Derivative at  𝓧₀ (numeric)</option>
+          <option value="integrateIndefinite">Indefinite integral ʃ 𝒇 d𝓧</option>
           <option value="integrateDefinite">Definite integral ʃ 𝒇 d𝓧 from a to b</option>
           <option value="limit">Limit of 𝒇(𝓧) at  𝓧₀</option>
         </select>
@@ -967,10 +972,76 @@ header .chip {
 
 <div class="footer">
   <div>Supports standard math functions: sin, cos, tan, exp, log, sqrt, abs, floor, ceil, etc.</div>
-  <div>Symbolic by math.js; numeric by adaptive Simpson and robust finite differences. Plotting by Canvas.</div>
+  <div>Symbolic by math.js & Nerdamer; numeric by adaptive Simpson and robust finite differences. Plotting by Canvas.</div>
 </div>
 
 <script>
+  // Fallback simple polynomial integrator
+  function simplePolynomialIntegral(polyStr) {
+    // Regex to match terms: optional sign, optional coeff, optional x^power
+    let termRegex = /([+-]?\s*(?:\d*\.?\d+)?\s*[xX]?(?:\^\s*(\d+))?|[+-]?\s*\d*\.?\d+)/g;
+    let terms = polyStr.match(termRegex) || [];
+    
+    let integratedTerms = [];
+    for (let term of terms) {
+      if (!term.trim()) continue;
+      let sign = term.startsWith('+') ? '+' : (term.startsWith('-') ? '-' : '');
+      term = term.replace(/[+-]/, '').trim().toLowerCase(); // Remove sign, normalize
+      
+      let coeff = 1;
+      let power = 0;
+      let hasX = term.includes('x');
+      
+      if (hasX) {
+        let parts = term.split('x');
+        let coeffPart = parts[0] || '';
+        let powerPart = (parts[1] || '').replace('^', '');
+        
+        coeff = coeffPart ? parseFloat(coeffPart) || 1 : 1;
+        if (hasX && !powerPart) power = 1;
+        else power = powerPart ? parseInt(powerPart) : 0;
+      } else {
+        // Constant
+        coeff = parseFloat(term) || 0;
+        power = 0;
+      }
+      
+      if (coeff === 0 || (power === -1 && hasX)) return 'Cannot integrate 1/x without log (use Nerdamer for ln|x|)'; // Skip log for simplicity
+      
+      // Integrate: coeff / (power + 1) * x^(power + 1)
+      let newPower = power + 1;
+      let newCoeff = coeff / newPower;
+      
+      // Format new term
+      let newTerm;
+      if (newPower === 0) {
+        newTerm = newCoeff.toFixed(2);
+      } else if (newPower === 1) {
+        newTerm = `${newCoeff.toFixed(2)}x`;
+      } else {
+        newTerm = `${newCoeff.toFixed(2)}x^${newPower}`;
+      }
+      
+      integratedTerms.push(sign + newTerm);
+    }
+    
+    return integratedTerms.join(' ') + ' + C';
+  }
+
+  // Comprehensive Indefinite Integral using Nerdamer
+  function indefiniteIntegral(expression, variable = 'x') {
+    try {
+      // Use Nerdamer's integrate function
+      let result = nerdamer.integrate(expression, variable);
+      // Get LaTeX output
+      let latexResult = result.toTeX();
+      return latexResult + ' + C';
+    } catch (error) {
+      // Fallback to simple polynomial parser
+      return simplePolynomialIntegral(expression);
+    }
+  }
+
   // UPDATED: Graph2D Class (integrated from provided code, adapted for single function and math.js)
   class Graph2D {
     constructor(canvas, options = {}) {
@@ -1978,96 +2049,65 @@ header .chip {
   console.log('DOMContentLoaded fully executed');
 });
   
-  // Enhanced LaTeX to math.js converter (recursive for nested structures)
+  // Enhanced LaTeX to math.js converter
 function latexToMathJS(latex) {
-  function convert(expr) {
-    if (typeof expr !== 'string') return expr;
-
-    let s = expr
-      // Simple operators and delimiters
-      .replace(/\\cdot|\\times/g, '*')
-      .replace(/\\div/g, '/')
-      .replace(/\\pm/g, '+/-')
-      .replace(/\\mp/g, '-/+')
-      .replace(/\\approx/g, '~')
-      .replace(/\\neq/g, '!=')
-      .replace(/\\infty/g, 'Infinity')
-      .replace(/\\partial/g, 'd')  // Approximate
-      .replace(/\\left|\\right/g, '')
-      // Advanced symbols: fallback to safe values to avoid parse errors
-      .replace(/\\sum|\\int|\\lim|\\prod|\\exists|\\cup|\\cap|\\begin\{[^}]+\}|\\end\{[^}]+\}/g, '0')
-
-      // Trigonometric functions
-      .replace(/\\sin/g, 'sin')
-      .replace(/\\cos/g, 'cos')
-      .replace(/\\tan/g, 'tan')
-      .replace(/\\csc/g, 'csc')
-      .replace(/\\sec/g, 'sec')
-      .replace(/\\cot/g, 'cot')
-      .replace(/\\arcsin/g, 'asin')
-      .replace(/\\arccos/g, 'acos')
-      .replace(/\\arctan/g, 'atan')
-
-      // Hyperbolic functions
-      .replace(/\\sinh/g, 'sinh')
-      .replace(/\\cosh/g, 'cosh')
-      .replace(/\\tanh/g, 'tanh')
-
-      // Log and exp
-      .replace(/\\ln/g, 'log')
-      .replace(/\\log/g, (match, offset, string) => {
-        // Check if followed by base
-        const baseMatch = string.slice(offset).match(/\\log_\{([^}]+)\}\{([^}]+)\}/);
-        if (baseMatch) {
-          return `log(${convert(baseMatch[2])}, ${convert(baseMatch[1])})`;
-        }
-        return 'log';  // Natural log if no base
-      })
-      .replace(/\\exp/g, 'exp')
-
-      // Recursive roots
-      .replace(/\\sqrt(\[([^{}]+)\])?\{([^}]+)\}/g, (m, bracket, n, arg) => {
-        const njs = convert(n || '2');
-        const argjs = convert(arg);
-        return njs === '2' ? `sqrt(${argjs})` : `pow(${argjs}, 1/${njs})`;
-      })
-
-      // Recursive fractions
-      .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, (m, num, den) => {
-        const numjs = convert(num);
-        const denjs = convert(den);
-        return `(${numjs})/(${denjs})`;
-      })
-
-      // Improved exponents (basic single-char base; users can paren complex)
-      .replace(/([a-zA-Z0-9πe])\^(\{?([^{}]+)\}?)/g, (m, base, br, exp) => {
-        const expjs = convert(exp || br);
-        return `${base}^(${expjs})`;
-      })
-
-      // Constants
-      .replace(/\\pi/g, 'pi')
-      .replace(/e(?!\{)/g, 'e')  // e not followed by {
-
-      // Greek letters to symbol names (math.js treats as symbols)
-      .replace(/\\alpha/g, 'alpha')
-      .replace(/\\beta/g, 'beta')
-      .replace(/\\gamma/g, 'gamma')
-      .replace(/\\delta/g, 'delta')
-      .replace(/\\theta/g, 'theta')
-      .replace(/\\lambda/g, 'lambda')
-      .replace(/\\mu/g, 'mu')
-      .replace(/\\phi/g, 'phi')
-
-      // Strip remaining braces
-      .replace(/\{|\}/g, '')
-
-      .trim();
-
-    return s;
-  }
-
-  return convert(latex);
+  let expr = latex
+    // Basic operators
+    .replace(/\\cdot|\\times/g, '*')
+    .replace(/\\div/g, '/')
+    .replace(/\\frac{([^}]*?)}{([^}]*?)}/g, '($1)/($2)')
+    .replace(/\\sqrt(?:\[[^}]+\])?{([^}]*)}/g, 'sqrt($1)')
+    .replace(/([a-zA-Z0-9_.]+)\^{([^}]*)}/g, '$1^($2)')
+    .replace(/([a-zA-Z0-9_.]+)_([^}]*)/g, '$1_$2')
+    
+    // Trig and hyperbolic functions
+    .replace(/\\sin/g, 'sin')
+    .replace(/\\cos/g, 'cos')
+    .replace(/\\tan/g, 'tan')
+    .replace(/\\csc/g, 'csc')
+    .replace(/\\sinh/g, 'sinh')
+    .replace(/\\cosh/g, 'cosh')
+    .replace(/\\tanh/g, 'tanh')
+    
+    // Logs and exp
+    .replace(/\\ln/g, 'log')
+    .replace(/\\log/g, 'log')
+    .replace(/\\exp/g, 'exp')
+    
+    // Constants
+    .replace(/\\pi/g, 'pi')
+    .replace(/\\infty/g, 'Infinity')
+    
+    // Greek letters
+    .replace(/\\alpha/g, 'alpha')
+    .replace(/\\beta/g, 'beta')
+    .replace(/\\gamma/g, 'gamma')
+    .replace(/\\delta/g, 'delta')
+    .replace(/\\theta/g, 'theta')
+    .replace(/\\lambda/g, 'lambda')
+    .replace(/\\mu/g, 'mu')
+    .replace(/\\phi/g, 'phi')
+    
+    // Advanced symbols
+    .replace(/\\sum/g, 'sum')
+    .replace(/\\int/g, 'int')
+    .replace(/\\lim/g, 'lim')
+    .replace(/\\partial/g, 'partial')
+    .replace(/\\prod/g, 'prod')
+    .replace(/\\cup/g, 'cup')
+    .replace(/\\cap/g, 'cap')
+    .replace(/\\exists/g, 'exists')
+    .replace(/\\approx/g, '~')
+    .replace(/\\neq/g, '!=')
+    
+    // Remove braces and extras
+    .replace(/\\left|\\right/g, '')
+    .replace(/\{|\}/g, '()')
+    .trim();
+  
+  expr = expr.replace(/\\begin\{pmatrix\}/g, '[').replace(/\\end\{pmatrix\}/g, ']');
+  
+  return expr;
 }
 
 
@@ -2083,35 +2123,17 @@ function latexToMathJS(latex) {
     return num;
   }
 
-// Make f(x): returns a JS function for numeric evaluation (robust to unknown symbols)
+// Make f(x): returns a JS function for numeric evaluation
 function compileFunction(expr, variable='x') {
-  let node;
-  try {
-    node = math.parse(expr);
-  } catch (e) {
-    throw new Error("Failed to parse expression: " + e.message);
-  }
+  const node = math.parse(expr);
   const code = node.compile();
-
-  // Extract unknown symbols (excluding variable and known constants)
-  const symbols = node.filter(function (n) {
-    return n.isSymbolNode && n.name !== variable && !['pi', 'e', 'Infinity'].includes(n.name);
-  }).map(n => n.name);
-  const uniqueSymbols = [...new Set(symbols)];
-
   return (x) => {
-    const scope = { [variable]: x, pi: Math.PI, e: Math.E };
-    // Set unknown symbols to 0 to avoid evaluation errors
-    uniqueSymbols.forEach(sym => { if (!scope.hasOwnProperty(sym)) scope[sym] = 0; });
-    try {
-      const v = code.evaluate(scope);
-      const num = Number(v);
-      if (!isFinite(num)) return NaN;  // Return NaN instead of throwing for continuity
-      return num;
-    } catch (evalErr) {
-      console.warn('Evaluation failed at x=' + x + ':', evalErr);
-      return NaN;
-    }
+    const scope = {};
+    scope[variable] = x;
+    const v = code.evaluate(scope);
+    const num = Number(v);
+    if (!isFinite(num)) throw new Error("f(x) returned non-finite number at x=" + x);
+    return num;
   };
 }
 
@@ -2147,8 +2169,8 @@ const S12 = Sa + Sb;
 const err = Math.abs(S12 - Sab);
 const tol = 15 * Math.max(absTol, relTol * Math.abs(S12));
 
-  if (err <= tol || depth >= maxDepth || isNaN(S12)) {
-    return isNaN(S12) ? NaN : S12 + (S12 - Sab) / 15;
+  if (err <= tol || depth >= maxDepth) {
+    return S12 + (S12 - Sab) / 15;
   }
   return recurse(a, fa, lm, flm, m, fm, Sa, depth + 1)
        + recurse(m, fm, rm, frm, b, fb, Sb, depth + 1);
@@ -2169,7 +2191,7 @@ function derivativeNumeric(f, x0) {
   const d1 = df(h);
   const d2 = df(h / 2);
   const rich = (4 * d2 - d1) / 3;
-  return isNaN(rich) ? NaN : rich;
+  return rich;
 }
 
 // Numeric limit of f(x) at x0
@@ -2181,10 +2203,10 @@ function limitNumeric(f, x0) {
     const hp = h / Math.pow(2, k);
     const left = f(x0 - hp);
     const right = f(x0 + hp);
-    if (!isFinite(left) || !isFinite(right) || isNaN(left) || isNaN(right)) continue;
+    if (!isFinite(left) || !isFinite(right)) continue;
     samples.push(0.5 * (left + right));
   }
-  if (!samples.length) return NaN;
+  if (!samples.length) throw new Error("Could not sample finite values near x0.");
   samples.sort((a,b)=>a-b);
   const trimmed = samples.slice(1, samples.length - 1);
   const arr = trimmed.length ? trimmed : samples;
@@ -2226,7 +2248,7 @@ if (displaySpan) {
 
 // Format number
 function fmtNumber(x) {
-  if (!isFinite(x) || isNaN(x)) return 'NaN';
+  if (!isFinite(x)) return String(x);
   const abs = Math.abs(x);
   if (abs !== 0 && (abs < 1e-4 || abs >= 1e6)) {
     return x.toExponential(8);
@@ -2322,21 +2344,17 @@ const originalLatex = mathField.latex();
         
         renderLatex(resultEl, resultLatex);
       } catch (err) {
-        // Fallback to numeric if x0 provided
-        if (x0Str) {
-          const x0 = parseValue(x0Str);
-          const df = derivativeNumeric(f, x0);
-          renderLatex(resultEl, `\\frac{d}{d${variable}}f(${variable}) \\approx ${fmtNumber(df)} \\; (at ${variable}=${fmtNumber(x0)})`);
-          errorEl.textContent = 'Symbolic derivative unavailable; using numeric approximation.';
-        } else {
-          throw new Error("Symbolic derivative failed and no x0 for numeric fallback: " + err.message);
-        }
+        throw new Error("Could not compute symbolic derivative: " + err.message);
       }
     } else if (op === 'differentiateNumeric') {
       if (!x0Str) throw new Error("Enter x0 for derivative.");
       const x0 = parseValue(x0Str);
       const df = derivativeNumeric(f, x0);
       renderLatex(resultEl, `\\left.\\dfrac{df}{d${variable}}\\right|_{${variable}=${fmtNumber(x0)}} \\approx ${fmtNumber(df)}`);
+    } else if (op === 'integrateIndefinite') {
+      const integralLatex = indefiniteIntegral(expr, variable);
+      const resultLatex = `\\int f(${variable})\\, d${variable} = ${integralLatex}`;
+      renderLatex(resultEl, resultLatex);
     } else if (op === 'integrateDefinite') {
       if (!intervalStr) throw new Error("Enter interval as a, b.");
       const parts = intervalStr.split(',').map(s => s.trim());
