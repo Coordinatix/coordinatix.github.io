@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>3D Sound</title>
+  <style>
+    body { margin: 0; background: #0a0a0a; color: #eee; font-family: system-ui; }
+    #ui { position: absolute; top: 12px; left: 12px; z-index: 10; }
+    button { margin-right: 8px; }
+    #tooltip { position: absolute; padding: 6px 8px; background: rgba(0,0,0,0.7); border: 1px solid #555; border-radius: 4px; display: none; pointer-events: none; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <div id="ui">
+    <button id="startBtn">Start</button>
+    <button id="stopBtn">Stop</button>
+    <button id="freezeBtn">Freeze Layout</button>
+    <button id="exportBtn">Export JSON</button>
+  </div>
+  <div id="tooltip"></div>
+  <canvas id="scene"></canvas>
+  <script type="module">
+    import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160/build/three.module.js';
+    import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.160/examples/jsm/controls/OrbitControls.js';
+    import UMAP from 'https://cdn.jsdelivr.net/npm/umap-js@1.4.1/umap.min.js';
+    import Meyda from 'https://cdn.jsdelivr.net/npm/meyda@5.5.0/dist/web/meyda.min.js';
+
+    // --- Audio and feature extraction ---
+    class AudioFeatureEngine {
+      constructor() {
+        this.audioCtx = null;
+        this.stream = null;
+        this.sourceNode = null;
+        // Removed unused analyser for cleanliness
+        this.bufferSize = 1024;
+        // Removed forced sampleRate; will detect actual after creation
+        this.meyda = null;
+        this.onFrame = null;
+        this._energyWindow = [];
+        this._syllables = [];
+        this._currentSyll = null;
+        this._frameIndex = 0;
+      }
+
+      async start(onSyllable) {
+        this.onSyllable = onSyllable;
+        // Fix: Use default sampleRate (browser-supported, e.g., 44100 Hz)
+        this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        this.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true }, video: false });
+        this.sourceNode = this.audioCtx.createMediaStreamSource(this.stream);
+        // No external analyser needed; Meyda handles it
+
+        this.meyda = Meyda.createMeydaAnalyzer({
+          audioContext: this.audioCtx,
+          source: this.sourceNode,
+          bufferSize: this.bufferSize,
+          windowingFunction: 'hanning',
+          featureExtractors: ['mfcc','spectralCentroid','spectralFlatness','spectralSlope','rms','zcr'],
+          callback: (features) => this._processFrame(features)
+        });
+        this.meyda.start();
+      }
+
+      stop() {
+        if (this.meyda) this.meyda.stop();
+        if (this.stream) this.stream.getTracks().forEach(t => t.stop());
+        if (this.audioCtx) this.audioCtx.close();
+        this.meyda = null;
+      }
+
+      _processFrame(f) {
+        const time = this._frameIndex * (this.bufferSize / this.audioCtx.sampleRate);
+        this._frameIndex++;
+
+        // Basic pitch estimate via autocorrelation (placeholder, refine as needed)
+        const pitchHz = this._estimatePitch();
+
+        const energy = f.rms || 0;
+        const zcr = f.zcr || 0;
+        const sc = f.spectralCentroid || 0;
+        const sf = f.spectralFlatness || 0;
+        const slope = f.spectralSlope || 0;
+        const mfcc = (f.mfcc || new Array(13).fill(0));
+
+        // Fix: Lower threshold multiplier for easier detection (0.5 instead of 0.8)
+        this._energyWindow.push(energy);
+        if (this._energyWindow.length > 50) this._energyWindow.shift();
+        const meanE = this._energyWindow.reduce((a,b)=>a+b,0) / Math.max(1,this._energyWindow.length);
+        const stdE = Math.sqrt(this._energyWindow.reduce((a,b)=>a+(b-meanE)*(b-meanE),0) / Math.max(1,this._energyWindow.length));
+        const thresh = meanE + 0.5 * stdE;  // Easier to trigger
+
+        const voiced = energy > thresh && zcr < 0.25;
+        if (voiced && !this._currentSyll) {
+          this._currentSyll = { start: time, frames: [] };
+        }
+        if (this._currentSyll) {
+          this._currentSyll.frames.push({ time, energy, zcr, sc, sf, slope, pitchHz, mfcc });
+          // end condition: energy dips below mean, or max duration cap
+          const over = energy < meanE * 0.9;
+          const long = (time - this._currentSyll.start) > 0.6;
+          if (over || long) {
+            const syll = this._finalizeSyllable(this._currentSyll);
+            this._currentSyll = null;
+            if (syll) this.onSyllable?.(syll);
+          }
+        }
+      }
+
+      _finalizeSyllable(s) {
+        const frames = s.frames;
+        if (!frames || frames.length < 4) return null;
+
+        const mean = (arr) => arr.reduce((a,b)=>a+b,0)/arr.length;
+        const median = (arr) => arr.slice().sort((a,b)=>a-b)[Math.floor(arr.length/2)];
+        const energyArr = frames.map(f=>f.energy);
+        const scArr = frames.map(f=>f.sc);
+        const sfArr = frames.map(f=>f.sf);
+        const slopeArr = frames.map(f=>f.slope);
+        const pitchArr = frames.map(f=>f.pitchHz).filter(p=>p>0);
+        const dur = frames[frames.length-1].time - frames[0].time;
+
+        const modAM = this._std(energyArr) / Math.max(1e-6, mean(energyArr));
+        const feature = [
+          ...this._mfccMean(frames),
+          mean(scArr), mean(sfArr), mean(slopeArr),
+          (pitchArr.length ? median(pitchArr) : 0),
+          modAM,
+          dur,
+          mean(energyArr)
+        ];
+        return {
+          id: crypto.randomUUID(),
+          startTime: s.start,
+          endTime: frames[frames.length-1].time,
+          features: new Float32Array(feature),
+          energyMean: mean(energyArr),
+          pitchMed: (pitchArr.length ? median(pitchArr) : 0),
+          frameCount: frames.length
+        };
+      }
+
+      _mfccMean(frames) {
+        const K = frames[0].mfcc.length;
+        const sum = new Array(K).fill(0);
+        for (const fr of frames) for (let k=0;k<K;k++) sum[k]+=fr.mfcc[k];
+        return sum.map(x=>x/frames.length);
+      }
+      _std(arr) {
+        const m = arr.reduce((a,b)=>a+b,0)/arr.length;
+        return Math.sqrt(arr.reduce((a,b)=>a+(b-m)*(b-m),0)/arr.length);
+      }
+      _estimatePitch() {
+        // Implement robust YIN or ACF if needed. Placeholder returns 0 (unvoiced).
+        return 0;
+      }
+    }
+
+    // --- Dimensionality reduction and graph ---
+    class Reducer3D {
+      constructor({ nNeighbors = 12, minDist = 0.1, metric = 'cosine' } = {}) {
+        this.umap = new UMAP({ nNeighbors, minDist, nComponents: 3, metric });
+        this.data = [];
+        this.embedded = null;
+        this.scaler = null;
+      }
+      add(vector) {
+        this.data.push(Array.from(vector));
+      }
+      fitTransform() {
+        // Fix: Lower min to 2 (UMAP works for N>=2; shows nodes faster)
+        if (this.data.length < 2) return [];
+        const X = this._zscore(this.data);
+        this.embedded = this.umap.fit(X);
+        // scale to unit cube
+        const mins = [Infinity,Infinity,Infinity];
+        const maxs = [-Infinity,-Infinity,-Infinity];
+        for (const p of this.embedded) for (let i=0;i<3;i++) { mins[i]=Math.min(mins[i],p[i]); maxs[i]=Math.max(maxs[i],p[i]); }
+        const scale = maxs.map((mx,i)=> (mx - mins[i]) || 1);
+        // Fix: Scale larger (*2) for better initial visibility ([-1,1] cube)
+        const normalized = this.embedded.map(p => p.map((v,i)=> ((v - mins[i]) / scale[i] - 0.5) * 2 ));
+        return normalized;
+      }
+      knn(k = 6) {
+        if (!this.embedded || this.embedded.length === 0) return [];
+        const pts = this.embedded;
+        const N = pts.length;
+        const neighbors = new Array(N).fill(0).map(()=>[]);
+        for (let i=0;i<N;i++) {
+          const dists = [];
+          for (let j=0;j<N;j++) if (i!==j) {
+            const dx = pts[i][0]-pts[j][0], dy = pts[i][1]-pts[j][1], dz = pts[i][2]-pts[j][2];
+            dists.push({ j, d: Math.hypot(dx,dy,dz) });
+          }
+          dists.sort((a,b)=>a.d-b.d);
+          neighbors[i] = dists.slice(0,k).map(o=>o.j);
+        }
+        return neighbors;
+      }
+      _zscore(X) {
+        const d = X[0].length;
+        const means = new Array(d).fill(0);
+        const stds = new Array(d).fill(0);
+        for (let j=0;j<d;j++) {
+          const col = X.map(r=>r[j]);
+          const m = col.reduce((a,b)=>a+b,0)/col.length;
+          const s = Math.sqrt(col.reduce((a,b)=>a+(b-m)*(b-m),0)/col.length) || 1;
+          means[j]=m; stds[j]=s;
+        }
+        return X.map(row=> row.map((v,j)=> (v - means[j]) / stds[j]));
+      }
+    }
+
+    // --- Visualization ---
+    class NervousSystem3D {
+      constructor(canvas) {
+        this.canvas = canvas;
+        this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.scene = new THREE.Scene();
+        this.scene.background = new THREE.Color(0x0a0a0a);
+        this.camera = new THREE.PerspectiveCamera(55, window.innerWidth/window.innerHeight, 0.01, 100);
+        this.camera.position.set(0, 0, 6);
+        this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+        this.controls.enableDamping = true;
+
+        const light = new THREE.PointLight(0xffffff, 2.0);
+        light.position.set(2,2,4);
+        this.scene.add(light);
+        this.nodesGroup = new THREE.Group();
+        this.edgesGroup = new THREE.Group();
+        this.scene.add(this.nodesGroup);
+        this.scene.add(this.edgesGroup);
+
+        this.raycaster = new THREE.Raycaster();
+        this.mouse = new THREE.Vector2();
+        this.tooltip = document.getElementById('tooltip');
+
+        window.addEventListener('resize', ()=>this._onResize());
+        this.renderer.domElement.addEventListener('mousemove', (e)=>this._onMouseMove(e));
+        this.renderer.domElement.addEventListener('click', (e)=>this._onClick(e));
+
+        this._anim = this._animate.bind(this);
+        requestAnimationFrame(this._anim);
+      }
+
+      setData(nodes, neighbors) {
+        this.nodesGroup.clear();
+        this.edgesGroup.clear();
+
+        // Nodes as spheres
+        const sphereGeo = new THREE.SphereGeometry(0.02, 16, 16);
+        for (const n of nodes) {
+          const mat = new THREE.MeshStandardMaterial({ color: new THREE.Color(...n.color), emissive: new THREE.Color(...n.color).multiplyScalar(0.2) });
+          const mesh = new THREE.Mesh(sphereGeo, mat);
+          mesh.position.set(...n.position);
+          mesh.userData = n;
+          this.nodesGroup.add(mesh);
+        }
+
+        // Edges as line segments
+        const lineMat = new THREE.LineBasicMaterial({ color: 0x88aaff, transparent: true, opacity: 0.35 });
+        for (let i=0;i<nodes.length;i++) {
+          for (const j of neighbors[i] || []) {
+            const geom = new THREE.BufferGeometry().setFromPoints([
+              new THREE.Vector3(...nodes[i].position),
+              new THREE.Vector3(...nodes[j].position)
+            ]);
+            const line = new THREE.Line(geom, lineMat);
+            this.edgesGroup.add(line);
+          }
+        }
+      }
+
+      _onResize() {
+        this.camera.aspect = window.innerWidth/window.innerHeight;
+        this.camera.updateProjectionMatrix();
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+      }
+
+      _animate() {
+        this.controls.update();
+        this.renderer.render(this.scene, this.camera);
+        requestAnimationFrame(this._anim);
+      }
+
+      _onMouseMove(e) {
+        const rect = this.renderer.domElement.getBoundingClientRect();
+        this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        this.raycaster.setFromCamera(this.mouse, this.camera);
+        const intersects = this.raycaster.intersectObjects(this.nodesGroup.children);
+        if (intersects.length > 0) {
+          const obj = intersects[0].object;
+          const d = obj.userData;
+          this.tooltip.style.display = 'block';
+          this.tooltip.style.left = `${e.clientX + 10}px`;
+          this.tooltip.style.top = `${e.clientY + 10}px`;
+          this.tooltip.innerText =
+            `Syllable ${d.id.slice(0,8)}\n` +
+            `t: ${d.startTime.toFixed(2)}–${d.endTime.toFixed(2)} s\n` +
+            `pitch: ${d.pitchMed.toFixed(1)} Hz\n` +
+            `energy: ${d.energyMean.toFixed(3)}\n` +
+            `value: ${d.value.toFixed(3)}`;
+        } else {
+          this.tooltip.style.display = 'none';
+        }
+      }
+
+      _onClick(e) {
+        const rect = this.renderer.domElement.getBoundingClientRect();
+        this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        this.raycaster.setFromCamera(this.mouse, this.camera);
+        const intersects = this.raycaster.intersectObjects(this.nodesGroup.children);
+        if (intersects.length > 0) {
+          const obj = intersects[0].object;
+          const d = obj.userData;
+          // Visual feedback
+          obj.material.emissiveIntensity = 0.8;
+          setTimeout(()=>obj.material.emissiveIntensity = 0.2, 200);
+
+          // Spatial audio ping using position
+          SpatialAudioEngine.playPingAt(d.position);
+        }
+      }
+    }
+
+    // --- Spatial audio feedback ---
+    class SpatialAudioEngine {
+      static init(audioCtx) {
+        SpatialAudioEngine.ctx = audioCtx;
+      }
+      static playPingAt(pos) {
+        if (!SpatialAudioEngine.ctx) return;
+        const ctx = SpatialAudioEngine.ctx;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        const panner = ctx.createPanner();
+        panner.panningModel = 'HRTF';
+        panner.distanceModel = 'inverse';
+        panner.positionX.value = pos[0] * 3;
+        panner.positionY.value = pos[1] * 3;
+        panner.positionZ.value = pos[2] * 3;
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(660, ctx.currentTime);
+        gain.gain.setValueAtTime(0.0, ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.2, ctx.currentTime + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+
+        osc.connect(gain).connect(panner).connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.3);
+      }
+    }
+
+    // --- Application orchestration ---
+    class App {
+      constructor() {
+        this.canvas = document.getElementById('scene');
+        this.vis = new NervousSystem3D(this.canvas);
+        this.engine = new AudioFeatureEngine();
+        this.reducer = new Reducer3D({ nNeighbors: 12, minDist: 0.05, metric: 'cosine' });
+
+        this.syllables = [];
+        this.nodes = [];
+        this.neighbors = [];
+
+        document.getElementById('startBtn').onclick = ()=>this.start();
+        document.getElementById('stopBtn').onclick = ()=>this.stop();
+        document.getElementById('freezeBtn').onclick = ()=>this.freezeLayout();
+        document.getElementById('exportBtn').onclick = ()=>this.exportJSON();
+      }
+
+      async start() {
+        await this.engine.start((syll)=>this._onSyllable(syll));
+        SpatialAudioEngine.init(this.engine.audioCtx);
+      }
+      stop() {
+        this.engine.stop();
+      }
+      freezeLayout() {
+        // No-op placeholder: could pin current positions or stop dynamic updates
+      }
+      exportJSON() {
+        const blob = new Blob([JSON.stringify({ syllables: this.syllables, nodes: this.nodes, neighbors: this.neighbors }, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'session.json';
+        a.click();
+      }
+
+      _onSyllable(s) {
+        this.syllables.push(s);
+        this.reducer.add(s.features);
+        const embedded = this.reducer.fitTransform();
+        if (embedded.length === 0) return;
+
+        // Build nodes with color/size mapping based on a value (e.g., normalized energy)
+        const val = (x) => {
+          const e = x.energyMean;
+          const eMin = Math.min(...this.syllables.map(sy=>sy.energyMean));
+          const eMax = Math.max(...this.syllables.map(sy=>sy.energyMean));
+          return (eMax===eMin) ? 0.5 : (e - eMin) / (eMax - eMin);
+        };
+        const colorFromValue = (v) => {
+          // simple viridis-like gradient
+          const c = new THREE.Color();
+          c.setHSL(0.66 - 0.66*v, 1.0, 0.5);
+          return [c.r, c.g, c.b];
+        };
+
+        this.nodes = this.syllables.map((syll, i) => {
+          const p = embedded[i];
+          const v = val(syll);
+          return {
+            id: syll.id,
+            position: [p[0], p[1], p[2]],
+            value: v,
+            color: colorFromValue(v),
+            size: 0.02 + 0.04*v,
+            startTime: syll.startTime,
+            endTime: syll.endTime,
+            energyMean: syll.energyMean,
+            pitchMed: syll.pitchMed
+          };
+        });
+        this.reducer.embedded = embedded; // keep for knn on current embedding
+        this.neighbors = this.reducer.knn(6);
+
+        this.vis.setData(this.nodes, this.neighbors);
+      }
+    }
+
+    // Bootstrap
+    const app = new App();
+  </script>
+</body>
+</html>

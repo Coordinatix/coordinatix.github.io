@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>3D Sound — Improved Syllable Detection</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    body { margin: 0; background: #07070a; color: #eee; font-family: system-ui, -apple-system, 'Segoe UI', Roboto; }
+    #ui { position: absolute; top: 12px; left: 12px; z-index: 20; }
+    button { margin-right: 8px; padding:6px 10px; border: 1px solid #555; border-radius: 4px; background: #333; color: #eee; cursor: pointer; }
+    button:hover { background: #444; }
+    #playBtn { background-color: #28a745; border-color: #28a745; }
+    #playBtn:hover { background-color: #218838; }
+    #playBtn:disabled { background-color: #555; border-color: #555; cursor: not-allowed; opacity: 0.6; }
+    #status { margin-left:8px;font-size:13px;opacity:0.8 }
+    #tooltip { position: absolute; padding: 6px 8px; background: rgba(0,0,0,0.7); border: 1px solid #333; border-radius: 4px; display: none; pointer-events: none; white-space: pre; font-size: 12px; }
+    canvas { display: block; width:100vw; height:100vh; }
+    #audioPlayer { position: absolute; bottom: 10px; left: 12px; z-index: 20; width: 200px; background: rgba(0,0,0,0.5); border-radius: 4px; padding: 5px; }
+  </style>
+</head>
+<body>
+  <div id="ui">
+    <button id="startBtn">Start Recording</button>
+    <button id="stopBtn" disabled>Stop Recording</button>
+    <button id="playBtn" disabled>Play Recording</button>
+    <button id="freezeBtn">Freeze Layout</button>
+    <button id="exportBtn">Export JSON</button>
+    <span id="status">Ready.</span>
+  </div>
+  <div id="tooltip"></div>
+  <canvas id="scene"></canvas>
+  <audio id="audioPlayer" controls></audio>
+
+  <!-- Using CDN versions from provided code -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three-orbitcontrols@2.110.3/OrbitControls.min.js"></script>
+  <script src="https://unpkg.com/umap-js@1.4.0/dist/umap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/meyda@5.6.3/dist/web/meyda.min.js"></script>
+
+  <script>
+    // Use globals: THREE, UMAP, Meyda
+    // THREE.OrbitControls is attached to THREE by the OrbitControls script
+
+    // Autocorrelation-based pitch detection (improved robustness)
+    function detectPitch(buffer, sampleRate) {
+      const bufferLength = buffer.length;
+      // Search for period in a reasonable range (e.g., 50Hz to 600Hz)
+      const minPeriod = sampleRate / 600; 
+      const maxPeriod = sampleRate / 50;  
+      
+      let maxCorrelation = -Infinity;
+      let bestPeriod = 0;
+
+      // Autocorrelation function (ACF)
+      for (let period = Math.floor(minPeriod); period <= Math.ceil(maxPeriod); period++) {
+        let correlation = 0;
+        for (let i = 0; i < bufferLength - period; i++) {
+          correlation += buffer[i] * buffer[i + period];
+        }
+        if (correlation > maxCorrelation) {
+          maxCorrelation = correlation;
+          bestPeriod = period;
+        }
+      }
+
+      // Simple threshold for correlation strength to determine "voiced"
+      // This is a heuristic; robust pitch detection like YIN would normalize.
+      if (maxCorrelation > 0.005) { // A heuristic threshold, adjust as needed based on signal strength
+        const frequency = sampleRate / bestPeriod;
+        // Further filter for human vocal range to reduce false positives
+        if (frequency > 70 && frequency < 800) { // Common vocal range
+            return frequency;
+        }
+      }
+      return 0; // No pitch detected
+    }
+
+    // Simple low-pass filter for smoothing
+    function lowPassFilter(value, prevValue, alpha = 0.8) {
+      return alpha * value + (1 - alpha) * (prevValue || value);
+    }
+
+    // --- Audio Feature Engine ---
+    class AudioFeatureEngine {
+      constructor() {
+        this.audioCtx = null;
+        this.stream = null; // The MediaStream will be passed in
+        this.sourceNode = null;
+        this.analyser = null;
+        this.scriptProcessorNode = null; 
+        this.bufferSize = 2048; // Frame size for ScriptProcessorNode
+        this.onSyllable = null;
+        this._energyWindow = [];
+        this._currentSyll = null;
+        this._frameIndex = 0;
+        
+        // Initial values for smoothing
+        this.prevEnergy = 0;
+        this.prevFlux = 0;
+        this.prevPitch = 0;
+      }
+
+      // Now accepts the MediaStream directly
+      async start(mediaStream, onSyllable) {
+        this.onSyllable = onSyllable;
+        if (!this.audioCtx) {
+          this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (this.audioCtx.state === 'suspended') {
+          await this.audioCtx.resume();
+        }
+
+        this.stream = mediaStream; // Use the provided stream
+
+        this.sourceNode = this.audioCtx.createMediaStreamSource(this.stream);
+        this.analyser = this.audioCtx.createAnalyser();
+        this.analyser.fftSize = this.bufferSize; 
+        
+        // Create ScriptProcessorNode for continuous audio processing
+        // This is necessary for the analyser to be updated and for direct buffer access.
+        // It's deprecated, but widely supported and simpler than AudioWorklet for this context.
+        this.scriptProcessorNode = this.audioCtx.createScriptProcessor(this.bufferSize, 1, 1);
+        this.scriptProcessorNode.onaudioprocess = this._onAudioProcess.bind(this);
+
+        // Connect the audio graph: source -> analyser -> scriptProcessor -> destination
+        this.sourceNode.connect(this.analyser);
+        this.analyser.connect(this.scriptProcessorNode);
+        // Connect to destination to ensure the scriptProcessorNode's onaudioprocess is triggered
+        this.scriptProcessorNode.connect(this.audioCtx.destination); 
+
+        this._energyWindow = [];
+        this._currentSyll = null; // Ensure no leftover syllable from previous session
+        this._frameIndex = 0;
+        this.prevEnergy = 0;
+        this.prevFlux = 0;
+        this.prevPitch = 0;
+      }
+
+      stop() {
+        if (this.scriptProcessorNode) {
+          this.scriptProcessorNode.disconnect();
+          this.scriptProcessorNode.onaudioprocess = null; 
+          this.scriptProcessorNode = null;
+        }
+        if (this.analyser) {
+          try { this.analyser.disconnect(); } catch(e){}
+        }
+        if (this.sourceNode) {
+          try { this.sourceNode.disconnect(); } catch(e){}
+        }
+        if (this.stream) { // Stop all tracks associated with the stream
+          this.stream.getTracks().forEach(t => t.stop());
+          this.stream = null;
+        }
+        // Suspend AudioContext to save resources if not needed
+        if (this.audioCtx && this.audioCtx.state === 'running') {
+            this.audioCtx.suspend();
+        }
+        this._currentSyll = null; 
+        this._energyWindow = []; 
+      }
+
+      _onAudioProcess(audioProcessingEvent) {
+        const inputBuffer = audioProcessingEvent.inputBuffer;
+        const channelData = inputBuffer.getChannelData(0); // Get mono audio data
+
+        // Perform pitch detection on the raw buffer
+        const pitch = detectPitch(channelData, this.audioCtx.sampleRate);
+        this.prevPitch = lowPassFilter(pitch, this.prevPitch, 0.7);
+        
+        const features = Meyda.extract(
+          ['mfcc','rms','zcr','spectralCentroid','spectralFlatness','spectralFlux'],
+          channelData, // Meyda expects the raw Float32Array here
+          { sampleRate: this.audioCtx.sampleRate }
+        ) || {};
+        
+        this._processFrame(features, this.prevPitch);
+      }
+
+      _processFrame(f, pitch) {
+        const frameDuration = this.bufferSize / this.audioCtx.sampleRate;
+        const time = this._frameIndex * frameDuration;
+        this._frameIndex++;
+
+        if (!f) return;
+
+        let energy = lowPassFilter((f.rms || 0), this.prevEnergy, 0.9);
+        this.prevEnergy = energy;
+        const zcr = (f.zcr || 0);
+        const flux = lowPassFilter((f.spectralFlux || 0), this.prevFlux, 0.8);
+        this.prevFlux = flux;
+
+        this._energyWindow.push(energy);
+        if (this._energyWindow.length > 50) this._energyWindow.shift(); 
+        const meanE = this._energyWindow.reduce((a,b)=>a+b,0) / Math.max(1,this._energyWindow.length);
+        const stdE = Math.sqrt(this._energyWindow.reduce((a,b)=>a+(b-meanE)*(b-meanE),0) / Math.max(1,this._energyWindow.length));
+        
+        const onsetEnergyThresh = meanE + 0.5 * stdE; 
+        const minAbsEnergy = 0.005; // Minimum energy to consider anything (tune this for your environment)
+        
+        const voiced = energy > Math.max(minAbsEnergy, onsetEnergyThresh) && 
+                       zcr < 0.5 && 
+                       pitch > 70 && pitch < 800 && // Human vocal range, slightly wider
+                       flux > 0.01;  // Onset indicator via spectral flux
+
+        if (voiced && !this._currentSyll) {
+          this._currentSyll = { start: time, frames: [] };
+        }
+        if (this._currentSyll) {
+          this._currentSyll.frames.push({ 
+            time, 
+            energy, 
+            zcr, 
+            pitch,
+            mfcc: f.mfcc || new Array(13).fill(0), 
+            sc: f.spectralCentroid || 0, 
+            sf: f.spectralFlatness || 0,
+            flux
+          });
+          const over = energy < meanE * 0.7;  
+          const long = (time - this._currentSyll.start) > 1.5;
+          const fluxDrop = flux < 0.005;  
+
+          if ((over && fluxDrop) || long) {
+            const syll = this._finalizeSyllable(this._currentSyll);
+            this._currentSyll = null;
+            if (syll) this.onSyllable && this.onSyllable(syll);
+          }
+        }
+      }
+
+      _finalizeSyllable(s) {
+        const frames = s.frames;
+        if (!frames || frames.length < 5) return null;  
+        
+        const mean = arr => arr.length > 0 ? arr.reduce((a,b)=>a+b,0)/arr.length : 0;
+        const std = arr => {
+            if (arr.length < 2) return 0;
+            const m = mean(arr);
+            return Math.sqrt(arr.reduce((a,b)=>a+(b-m)*(b-m),0)/arr.length);
+        };
+
+        const energyArr = frames.map(f=>f.energy);
+        const scArr = frames.map(f=>f.sc);
+        const sfArr = frames.map(f=>f.sf);
+        const pitchArr = frames.map(f=>f.pitch).filter(p => p > 0);
+        const fluxArr = frames.map(f=>f.flux);
+
+        const dur = frames[frames.length-1].time - frames[0].time;
+        
+        const mfcc = (function(){
+          const K = frames[0].mfcc ? frames[0].mfcc.length : 0;
+          if (K === 0) return new Array(13).fill(0); 
+          const sum = new Array(K).fill(0);
+          for (const fr of frames) for (let k=0;k<K;k++) sum[k]+=(fr.mfcc && fr.mfcc[k] || 0);
+          return sum.map(x=>x/frames.length);
+        })();
+
+        const modAM = std(energyArr) / Math.max(1e-6, mean(energyArr));
+        const meanPitch = mean(pitchArr);
+        const pitchVar = std(pitchArr);
+        const meanFlux = mean(fluxArr);
+
+        const feature = [].concat(
+          mfcc.slice(0,8), 
+          [ mean(scArr), mean(sfArr), 
+            modAM, dur, mean(energyArr), meanPitch, pitchVar, meanFlux ]
+        );
+        return {
+          id: (crypto && crypto.randomUUID) ? crypto.randomUUID() : ('syl-'+Date.now()+'-'+Math.random().toString(36).slice(2,9)),
+          startTime: s.start,
+          endTime: frames[frames.length-1].time,
+          features: new Float32Array(feature),
+          energyMean: mean(energyArr),
+          pitchMean: meanPitch,
+          frameCount: frames.length
+        };
+      }
+    }
+
+    // --- Reducer3D ---
+    class Reducer3D {
+      constructor({ nNeighbors = 8, minDist = 0.1, metric = 'cosine', batchSize = 6 } = {}) {
+        this.nNeighbors = nNeighbors;
+        this.minDist = minDist;
+        this.metric = metric;
+        this.data = [];
+        this.embedded = [];
+        this.batchSize = batchSize;
+        this.umap = null;
+        this._lastFitCount = 0; 
+      }
+      add(vector) { this.data.push(Array.from(vector)); }
+      fitTransformIfNeeded() {
+        if (this.data.length < Math.max(2, this.nNeighbors + 1)) { 
+            return []; 
+        }
+        
+        if (this.data.length - this._lastFitCount < this.batchSize && this.embedded.length > 0) {
+            return this.embedded; 
+        }
+
+        try {
+          this.umap = new UMAP({ nNeighbors: this.nNeighbors, minDist: this.minDist, nComponents: 3, metric: this.metric });
+          const X = this._zscore(this.data);
+          const e = this.umap.fit(X);
+          
+          const mins=[Infinity,Infinity,Infinity], maxs=[-Infinity,-Infinity,-Infinity];
+          for (const p of e) for (let i=0;i<3;i++){ mins[i]=Math.min(mins[i],p[i]); maxs[i]=Math.max(maxs[i],p[i]); }
+          const scales = maxs.map((mx,i)=> (mx-mins[i])||1); 
+          this.embedded = e.map(p=>p.map((v,i)=> ((v - mins[i]) / scales[i] - 0.5) * 2)); 
+
+          this._lastFitCount = this.data.length;
+          return this.embedded;
+        } catch(err) {
+          console.warn('UMAP fit failed, possibly due to insufficient data or degenerate features:', err);
+          return this.embedded || [];
+        }
+      }
+      knn(k=6) {
+        const pts = this.embedded || [];
+        const N = pts.length; if (N===0) return [];
+        const neighbors = new Array(N).fill(0).map(()=>[]);
+        for (let i=0;i<N;i++){
+          const dists=[];
+          for (let j=0;j<N;j++) if (i!==j){
+            const dx=pts[i][0]-pts[j][0], dy=pts[i][1]-pts[j][1], dz=pts[i][2]-pts[j][2];
+            dists.push({j, d: Math.hypot(dx,dy,dz)});
+          }
+          dists.sort((a,b)=>a.d-b.d);
+          neighbors[i]=dists.slice(0,Math.min(k,dists.length)).map(o=>o.j);
+        }
+        return neighbors;
+      }
+      _zscore(X){
+        const d = X[0].length;
+        const means = new Array(d).fill(0), stds = new Array(d).fill(1);
+        for (let j=0;j<d;j++){
+          const col = X.map(r=>r[j]);
+          if (col.length === 0) continue; // Skip empty columns
+          const m = col.reduce((a,b)=>a+b,0)/col.length;
+          const s = Math.sqrt(col.reduce((a,b)=>a+(b-m)*(b-m),0)/col.length);
+          means[j]=m; stds[j]=Math.max(s, 1e-6); 
+        }
+        return X.map(row=> row.map((v,j)=> (v - means[j]) / stds[j]));
+      }
+    }
+
+    // --- Visualization ---
+    class NervousSystem3D {
+      constructor(canvas) {
+        this.canvas = canvas;
+        this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+        this.renderer.setPixelRatio(window.devicePixelRatio || 1);
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.scene = new THREE.Scene();
+        this.scene.background = new THREE.Color(0x07070a);
+        this.camera = new THREE.PerspectiveCamera(55, window.innerWidth/window.innerHeight, 0.01, 200);
+        this.camera.position.set(0, 0, 6);
+        this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
+        this.controls.enableDamping = true;
+
+        const light = new THREE.PointLight(0xffffff, 1.2);
+        light.position.set(2,2,4);
+        this.scene.add(light);
+
+        this.nodesGroup = new THREE.Group();
+        this.edgesGroup = new THREE.Group();
+        this.scene.add(this.nodesGroup);
+        this.scene.add(this.edgesGroup);
+
+        this.raycaster = new THREE.Raycaster();
+        this.mouse = new THREE.Vector2();
+        this.tooltip = document.getElementById('tooltip');
+
+        window.addEventListener('resize', ()=>this._onResize());
+        this.renderer.domElement.addEventListener('mousemove', (e)=>this._onMouseMove(e));
+        this.renderer.domElement.addEventListener('click', (e)=>this._onClick(e));
+
+        this._anim = this._animate.bind(this);
+        requestAnimationFrame(this._anim);
+      }
+
+      setData(nodes, neighbors) {
+        this.nodesGroup.clear(); this.edgesGroup.clear();
+        const sphereGeo = new THREE.SphereGeometry(0.03, 10, 10);
+        for (const n of nodes) {
+          const mat = new THREE.MeshStandardMaterial({ color: new THREE.Color(...n.color), emissive: new THREE.Color(...n.color).multiplyScalar(0.2) });
+          const mesh = new THREE.Mesh(sphereGeo, mat);
+          mesh.position.set(...n.position);
+          mesh.scale.setScalar(n.size || 0.02);
+          mesh.userData = n;
+          this.nodesGroup.add(mesh);
+        }
+        const lineMat = new THREE.LineBasicMaterial({ color: 0x88aaff, transparent: true, opacity: 0.28 });
+        for (let i=0;i<nodes.length;i++){
+          for (const j of (neighbors[i]||[])){
+            if (j === i || j < 0 || j >= nodes.length) continue; 
+            const geom = new THREE.BufferGeometry().setFromPoints([
+              new THREE.Vector3(...nodes[i].position), new THREE.Vector3(...nodes[j].position)
+            ]);
+            const line = new THREE.Line(geom, lineMat);
+            this.edgesGroup.add(line);
+          }
+        }
+      }
+
+      _onResize(){
+        this.camera.aspect = window.innerWidth/window.innerHeight;
+        this.camera.updateProjectionMatrix();
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+      }
+
+      _animate(){
+        this.controls.update();
+        this.renderer.render(this.scene, this.camera);
+        requestAnimationFrame(this._anim);
+      }
+
+      _onMouseMove(e){
+        const rect = this.renderer.domElement.getBoundingClientRect();
+        this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        this.raycaster.setFromCamera(this.mouse, this.camera);
+        const intersects = this.raycaster.intersectObjects(this.nodesGroup.children);
+        if (intersects.length > 0) {
+          const obj = intersects[0].object; const d = obj.userData;
+          this.tooltip.style.display = 'block';
+          this.tooltip.style.left = `${e.clientX + 10}px`;
+          this.tooltip.style.top = `${e.clientY + 10}px`;
+          this.tooltip.innerText =
+            `Syllable ${d.id.slice(0,8)}\n`+
+            `t: ${d.startTime.toFixed(2)}–${d.endTime.toFixed(2)} s\n`+
+            `energy: ${d.energyMean.toFixed(4)}\n`+
+            `pitch: ${d.pitchMean.toFixed(1)} Hz\n`+
+            `frames: ${d.frameCount}`;
+        } else this.tooltip.style.display = 'none';
+      }
+
+      _onClick(e){
+        const rect = this.renderer.domElement.getBoundingClientRect();
+        this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        this.raycaster.setFromCamera(this.mouse, this.camera);
+        const intersects = this.raycaster.intersectObjects(this.nodesGroup.children);
+        if (intersects.length>0){
+          const obj = intersects[0].object; const d = obj.userData;
+          obj.material.emissiveIntensity = 0.8;
+          setTimeout(()=>obj.material.emissiveIntensity = 0.2, 200);
+          SpatialAudioEngine.playPingAt(d.position, d.pitchMean || 220);  
+        }
+      }
+    }
+
+    // --- Spatial audio ---
+    class SpatialAudioEngine {
+      static ctx = null; 
+      static init(audioCtx){ SpatialAudioEngine.ctx = audioCtx; }
+      static playPingAt(pos, pitch = 220){
+        const ctx = SpatialAudioEngine.ctx; if (!ctx) return;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        
+        const panner = ctx.createPanner();
+        panner.panningModel = 'HRTF';
+        panner.distanceModel = 'inverse';
+        panner.positionX.value = pos[0]*3; 
+        panner.positionY.value = pos[1]*3; 
+        panner.positionZ.value = pos[2]*3; 
+
+        osc.type = 'sine'; 
+        osc.frequency.value = Math.max(110, Math.min(880, pitch));  
+        gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.2, ctx.currentTime + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+        osc.connect(gain).connect(panner).connect(ctx.destination);
+        osc.start(); osc.stop(ctx.currentTime + 0.35);
+      }
+    }
+
+    // --- App orchestration ---
+    class App {
+      constructor(){
+        this.canvas = document.getElementById('scene');
+        this.vis = new NervousSystem3D(this.canvas);
+        this.engine = new AudioFeatureEngine();
+        this.reducer = new Reducer3D({ nNeighbors: 8, minDist: 0.1, metric: 'cosine', batchSize: 4 });
+        this.syllables = [];
+        this.nodes = [];
+        this.neighbors = [];
+        this.frozen = false;
+
+        this.mediaRecorder = null;
+        this.audioChunks = [];
+        this.audioBlob = null;
+        this.mimeType = 'audio/webm;codecs=opus';
+        this.playBtn = document.getElementById('playBtn');
+        this.audioPlayer = document.getElementById('audioPlayer');
+        this.statusEl = document.getElementById('status');
+        this.startBtn = document.getElementById('startBtn');
+        this.stopBtn = document.getElementById('stopBtn');
+
+        this.startBtn.onclick = ()=>this.start();
+        this.stopBtn.onclick = ()=>this.stop();
+        this.playBtn.onclick = ()=>this.play();
+        document.getElementById('freezeBtn').onclick = ()=>{ 
+            this.frozen = !this.frozen; 
+            document.getElementById('freezeBtn').innerText = this.frozen ? 'Unfreeze Layout' : 'Freeze Layout'; 
+            if (!this.frozen) {
+                this.vis.setData(this.nodes, this.neighbors);
+            }
+        };
+        document.getElementById('exportBtn').onclick = ()=>this.exportJSON();
+      }
+
+      async start(){
+        try {
+          this.statusEl.innerText = 'Requesting microphone access...';
+          this.startBtn.disabled = true;
+          this.stopBtn.disabled = true;
+          this.playBtn.disabled = true;
+          
+          // Reset data for a new recording session
+          this.syllables = [];
+          this.reducer = new Reducer3D({ nNeighbors: 8, minDist: 0.1, metric: 'cosine', batchSize: 4 });
+          this.nodes = [];
+          this.neighbors = [];
+          this.vis.setData([], []); // Clear visualization
+
+          // --- Get MediaStream directly in App for consistent handling ---
+          const mediaStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true }, video: false });
+
+          // Pass the successfully obtained stream to the AudioFeatureEngine
+          await this.engine.start(mediaStream, (syll)=>this._onSyllable(syll));
+          
+          // Initialize MediaRecorder with the obtained stream
+          if (!MediaRecorder.isTypeSupported(this.mimeType)) {
+            throw new Error('Unsupported MIME type: ' + this.mimeType + '. Try a different browser.');
+          }
+          this.mediaRecorder = new MediaRecorder(mediaStream, { mimeType: this.mimeType });
+          this.audioChunks = [];
+          this.mediaRecorder.ondataavailable = (event) => {
+            this.audioChunks.push(event.data);
+          };
+          this.mediaRecorder.onstop = () => {
+            this.audioBlob = new Blob(this.audioChunks, { type: this.mimeType });
+            const audioUrl = URL.createObjectURL(this.audioBlob);
+            this.audioPlayer.src = audioUrl;
+            this.playBtn.disabled = false;
+            this.statusEl.innerText = `Recording saved. Click Play to listen. Syllables detected: ${this.syllables.length}.`;
+          };
+          this.mediaRecorder.start();
+
+          this.statusEl.innerText = 'Recording and analyzing... Speak now!';
+          this.stopBtn.disabled = false;
+          SpatialAudioEngine.init(this.engine.audioCtx); // Initialize spatial audio with the engine's AudioContext
+
+        } catch (err) {
+            console.error('Microphone initialization error:', err);
+            if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+                this.statusEl.innerText = 'Microphone access denied. Please allow microphone access in your browser settings.';
+            } else if (err.name === "NotFoundError") {
+                this.statusEl.innerText = 'No microphone found. Please ensure a microphone is connected and enabled.';
+            } else if (err.name === "AbortError" || err.name === "SecurityError") {
+                this.statusEl.innerText = 'Microphone access blocked by browser security policy. Ensure HTTPS and user interaction.';
+            } else {
+                this.statusEl.innerText = 'Error initializing microphone: ' + err.message;
+            }
+            this.startBtn.disabled = false; // Re-enable start button
+            this.stopBtn.disabled = true;
+            this.playBtn.disabled = true;
+        }
+      }
+
+      stop(){
+        // Stop the MediaRecorder first to finalize the blob
+        if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
+          this.mediaRecorder.stop();
+        }
+        // Then stop the audio engine which also stops the MediaStream tracks
+        this.engine.stop();
+        
+        this.startBtn.disabled = false;
+        this.stopBtn.disabled = true;
+        // Play button state is handled by mediaRecorder.onstop
+      }
+
+      play() {
+        if (this.audioBlob) {
+            this.audioPlayer.play();
+        }
+      }
+
+      exportJSON(){
+        const payload = { 
+            syllables: this.syllables.map(s=>({
+                id:s.id,
+                start:s.startTime,
+                end:s.endTime,
+                energy:s.energyMean,
+                pitch:s.pitchMean,
+                frames:s.frameCount,
+                features: Array.from(s.features) 
+            })),
+            nodes: this.nodes.map(n=>({
+                id:n.id,
+                position: n.position,
+                value: n.value,
+                color: n.color,
+                size: n.size,
+                startTime: n.startTime,
+                endTime: n.endTime,
+                energyMean: n.energyMean,
+                pitchMean: n.pitchMean,
+                frameCount: n.frameCount
+            })),
+            neighbors: this.neighbors
+        };
+        const blob = new Blob([JSON.stringify(payload,null,2)], { type: 'application/json' });
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'session.json'; a.click();
+      }
+
+      _onSyllable(s){
+        this.syllables.push(s);
+        this.reducer.add(s.features);
+        const embedded = this.reducer.fitTransformIfNeeded();
+        
+        if (!embedded || embedded.length === 0) {
+            this.statusEl.innerText = `Syllable ${this.syllables.length}. Not enough data for UMAP yet.`;
+            return;
+        }
+
+        const eMin = Math.min(...this.syllables.map(x=>x.energyMean));
+        const eMax = Math.max(...this.syllables.map(x=>x.energyMean));
+        const val = (x)=> (eMax===eMin)?0.5:((x.energyMean - eMin)/(eMax-eMin));
+        const colorFromValue = (v)=>{ const c = new THREE.Color(); c.setHSL(0.66 - 0.66*v, 1.0, 0.5); return [c.r,c.g,c.b]; };
+        
+        this.nodes = this.syllables.map((sy,i)=>{
+          const p = (embedded[i] || [Math.random()-0.5, Math.random()-0.5, Math.random()-0.5]); 
+          const v = val(sy);
+          return { 
+            id: sy.id, 
+            position: [p[0],p[1],p[2]], 
+            value: v, 
+            color: colorFromValue(v), 
+            size: 0.02 + 0.05*v, 
+            startTime: sy.startTime, 
+            endTime: sy.endTime, 
+            energyMean: sy.energyMean, 
+            pitchMean: sy.pitchMean,
+            frameCount: sy.frameCount 
+          };
+        });
+        
+        this.neighbors = this.reducer.knn(6);
+        
+        if (!this.frozen) {
+            this.vis.setData(this.nodes, this.neighbors);
+        }
+        this.statusEl.innerText = `Syllables detected: ${this.syllables.length}. Last Syllable: t=${s.startTime.toFixed(2)}s, p=${s.pitchMean.toFixed(1)}Hz`;
+      }
+    }
+
+    // bootstrap
+    const app = new App();
+
+    // cleanup
+    window.addEventListener('beforeunload', ()=>{ try{ app.stop(); }catch(e){} });
+  </script>
+</body>
+</html>

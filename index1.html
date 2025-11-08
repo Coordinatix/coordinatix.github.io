@@ -1,0 +1,1173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced 2D Graphing Calculator</title>
+    <!-- MathQuill CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', 'Roboto', sans-serif;
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #f0f2f5;
+            color: #333;
+        }
+        #app-container {
+            display: flex;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Sidebar Styling */
+        #sidebar {
+            width: 350px;
+            min-width: 280px;
+            background-color: #ffffff;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.08);
+            display: flex;
+            flex-direction: column;
+            padding: 20px 15px;
+            overflow-y: auto;
+            position: relative;
+            z-index: 100;
+        }
+        #sidebar h2 {
+            position: relative;
+            text-align: center;
+            color: #2c3e50;
+            margin: 0 0 25px;
+            font-size: 1.8em;
+            font-weight: 600;
+            border-bottom: 1px solid #e0e0e0;
+            padding-bottom: 15px;
+        }
+        #3d-btn {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.2s;
+        }
+        #3d-btn:hover {
+            background-color: #2980b9;
+        }
+        #equation-list {
+            flex-grow: 1;
+            margin-bottom: 15px;
+        }
+        .equation-input-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+            background-color: #fdfdfd;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 6px 10px;
+            transition: all 0.2s ease-in-out;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .equation-input-group:focus-within {
+            border-color: #3498db;
+            box-shadow: 0 1px 5px rgba(52, 152, 219, 0.2);
+        }
+        .equation-input-group.error {
+            border-color: #e74c3c;
+            box-shadow: 0 1px 5px rgba(231, 76, 60, 0.2);
+        }
+        .equation-input-group .mq-editable-field {
+            flex-grow: 1;
+            font-size: 1.1em;
+            padding: 2px 5px;
+            border: none;
+            outline: none;
+            min-height: 32px;
+            box-sizing: border-box;
+            background-color: transparent;
+            cursor: text;
+        }
+        .equation-input-group .color-picker {
+            width: 28px;
+            height: 28px;
+            border: 1px solid #cfcfcf;
+            border-radius: 6px;
+            padding: 0;
+            cursor: pointer;
+            margin-right: 10px;
+            background: none;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        .equation-input-group .color-picker::-webkit-color-swatch-wrapper {
+            padding: 0;
+        }
+        .equation-input-group .color-picker::-webkit-color-swatch {
+            border: none;
+        }
+        .equation-input-group .remove-btn {
+            background: none;
+            border: none;
+            font-size: 1.5em;
+            color: #aaa;
+            cursor: pointer;
+            margin-left: 8px;
+            padding: 0 5px;
+            line-height: 1;
+            transition: color 0.2s;
+        }
+        .equation-input-group .remove-btn:hover {
+            color: #e74c3c;
+        }
+        .sidebar-btn {
+            display: block;
+            width: 100%;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.1em;
+            font-weight: 500;
+            margin-top: 10px;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+        .sidebar-btn:hover {
+            background-color: #2980b9;
+            transform: translateY(-1px);
+        }
+        .sidebar-btn:active {
+            transform: translateY(0);
+        }
+        #keyboard-toggle-btn {
+            background-color: #2ecc71;
+            margin-top: 20px;
+        }
+        #keyboard-toggle-btn:hover {
+            background-color: #27ae60;
+        }
+        #reset-btn {
+            background-color: #9b59b6;
+        }
+        #reset-btn:hover {
+            background-color: #8e44ad;
+        }
+
+        /* Graph Area */
+        #graph-area {
+            flex-grow: 1;
+            position: relative;
+            background-color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #graph-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            touch-action: none;
+        }
+
+        /* Virtual Keyboard */
+        #virtual-keyboard-container {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: rgba(255,255,255,0.98);
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.15);
+            padding: 15px;
+            border-top-left-radius: 15px;
+            border-top-right-radius: 15px;
+            z-index: 200;
+            display: none;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            max-height: 40vh;
+            overflow-y: auto;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+        #virtual-keyboard-container.visible {
+            display: flex;
+        }
+        .keyboard-btn {
+            background-color: #f0f4f7;
+            border: 1px solid #dcdfe4;
+            border-radius: 8px;
+            padding: 12px 18px;
+            font-size: 1.1em;
+            font-weight: 500;
+            cursor: pointer;
+            min-width: 50px;
+            text-align: center;
+            transition: background-color 0.2s, border-color 0.2s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            user-select: none;
+        }
+        .keyboard-btn:hover {
+            background-color: #e5e9ed;
+            border-color: #cdd2d9;
+        }
+        .keyboard-btn:active {
+            background-color: #dbe0e5;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .keyboard-btn.op {
+            background-color: #e8f5e9;
+            border-color: #c8e6c9;
+            color: #2e7d32;
+        }
+        .keyboard-btn.func {
+            background-color: #e3f2fd;
+            border-color: #bbdefb;
+            color: #1976d2;
+        }
+        .keyboard-btn.special {
+            background-color: #fff3e0;
+            border-color: #ffe0b2;
+            color: #ef6c00;
+        }
+        .keyboard-btn.clear, .keyboard-btn.backspace {
+            background-color: #ef9a9a;
+            border-color: #e57373;
+            color: #c62828;
+            font-weight: bold;
+        }
+        .keyboard-btn.clear:hover, .keyboard-btn.backspace:hover {
+            background-color: #e57373;
+        }
+        .keyboard-btn.enter {
+            background-color: #a5d6a7;
+            border-color: #81c784;
+            color: #388e3c;
+            font-weight: bold;
+        }
+        .keyboard-btn.enter:hover {
+            background-color: #81c784;
+        }
+        .keyboard-btn.wide {
+            flex-basis: calc(33.33% - 10px);
+            max-width: 150px;
+        }
+    </style>
+</head>
+<body>
+    <div id="app-container">
+        <div id="sidebar">
+            <h2>Coordinatix 2D<button id="3d-btn">3D</button></h2>
+            <div id="equation-list"></div>
+            <button id="add-equation-btn" class="sidebar-btn">+ Add Equation</button>
+            <button id="keyboard-toggle-btn" class="sidebar-btn"> Keyboard</button>
+            <button id="reset-btn" class="sidebar-btn">Reset View</button>
+        </div>
+        <div id="graph-area">
+            <canvas id="graph-canvas"></canvas>
+            <div id="virtual-keyboard-container"></div>
+        </div>
+    </div>
+
+    <!-- jQuery (MathQuill dependency) -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
+    <!-- MathQuill JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.js"></script>
+    <!-- Evaluatex for LaTeX parsing and safe evaluation -->
+    <script src="https://cdn.jsdelivr.net/npm/evaluatex@2.2.0/dist/evaluatex.min.js"></script>
+
+    <script>
+        // Graph2D Class
+        class Graph2D {
+            constructor(canvas, options = {}) {
+                this.canvas = canvas;
+                this.ctx = canvas.getContext('2d');
+                this.dpr = window.devicePixelRatio || 1;
+
+                this.style = {
+                    bg: options.bg || '#ffffff',
+                    gridMajor: options.gridMajor || '#e6e6e6',
+                    gridMinor: options.gridMinor || '#f5f5f5',
+                    axis: options.axis || '#333333',
+                    axisArrow: options.axisArrow || '#333333',
+                    tick: options.tick || '#666666',
+                    text: options.text || '#222222',
+                    crosshair: options.crosshair || 'rgba(0,0,0,0.25)',
+                    tooltipBg: options.tooltipBg || 'rgba(255,255,255,0.9)',
+                    tooltipBorder: options.tooltipBorder || 'rgba(0,0,0,0.15)',
+                    legendText: options.legendText || '#111111'
+                };
+
+                this.originX = options.originX ?? 0;
+                this.originY = options.originY ?? 0;
+                this.scaleX = options.scaleX ?? 60;
+                this.scaleY = options.scaleY ?? 60;
+                this.minScale = options.minScale ?? 10;
+                this.maxScale = options.maxScale ?? 1000;
+                this.isDragging = false;
+                this.isPinching = false;
+                this.dragStart = { sx: 0, sy: 0, ox: 0, oy: 0 };
+                this.mouse = { sx: 0, sy: 0, x: 0, y: 0, inside: false };
+                this.inertia = { vx: 0, vy: 0, active: false };
+                this.lastTouchDist = 0;
+                this.zoomFactorPerWheel = options.zoomFactorPerWheel ?? 1.08;
+                this.enableInertia = options.enableInertia ?? true;
+                this.series = [];
+                this.legend = { show: true, position: 'top-right' };
+                this.tooltip = { show: true, padding: 8, font: '12px sans-serif' };
+                this.needsRedraw = true;
+                this.anim = null;
+                this._initialOriginSet = false;
+
+                this.resizeObserver = new ResizeObserver(() => this.resize());
+                this.resizeObserver.observe(this.canvas);
+                this.attachEvents();
+                this.loop();
+            }
+
+            worldToScreen(x, y) {
+                return {
+                    sx: (x - this.originX) * this.scaleX,
+                    sy: (this.originY - y) * this.scaleY
+                };
+            }
+
+            screenToWorld(sx, sy) {
+                return {
+                    x: sx / this.scaleX + this.originX,
+                    y: this.originY - sy / this.scaleY
+                };
+            }
+
+            addFunction(fn, options = {}) {
+                const s = {
+                    type: 'function',
+                    fn,
+                    color: options.color || '#2a62ff',
+                    width: options.width || 2,
+                    sampleStep: options.sampleStep || 1,
+                    name: options.name || 'f(x)'
+                };
+                this.series.push(s);
+                this.requestRedraw();
+                return s;
+            }
+
+            clearSeries() {
+                this.series = [];
+                this.requestRedraw();
+            }
+
+            resize() {
+                const rect = this.canvas.getBoundingClientRect();
+                const logicalW = rect.width;
+                const logicalH = rect.height;
+                this.canvas.width = Math.round(logicalW * this.dpr);
+                this.canvas.height = Math.round(logicalH * this.dpr);
+                this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+
+                if (!this._initialOriginSet) {
+                    this.originX = - (logicalW / 2) / this.scaleX;
+                    this.originY = (logicalH / 2) / this.scaleY;
+                    this._initialOriginSet = true;
+                }
+
+                this.requestRedraw();
+            }
+
+            attachEvents() {
+                const c = this.canvas;
+
+                // Mouse events
+                c.addEventListener('mousedown', (e) => {
+                    this.isDragging = true;
+                    this.isPinching = false;
+                    this.inertia.active = false;
+                    const rect = c.getBoundingClientRect();
+                    const sx = e.clientX - rect.left;
+                    const sy = e.clientY - rect.top;
+                    this.dragStart = { sx, sy, ox: this.originX, oy: this.originY };
+                });
+
+                window.addEventListener('mousemove', (e) => {
+                    const rect = c.getBoundingClientRect();
+                    const sx = e.clientX - rect.left;
+                    const sy = e.clientY - rect.top;
+                    this.mouse.sx = sx;
+                    this.mouse.sy = sy;
+                    const w = this.screenToWorld(sx, sy);
+                    this.mouse.x = w.x;
+                    this.mouse.y = w.y;
+                    this.mouse.inside =
+                        e.clientX >= rect.left &&
+                        e.clientX <= rect.right &&
+                        e.clientY >= rect.top &&
+                        e.clientY <= rect.bottom;
+
+                    if (this.isDragging) {
+                        const dx = sx - this.dragStart.sx;
+                        const dy = sy - this.dragStart.sy;
+                        const prevOriginX = this.originX;
+                        const prevOriginY = this.originY;
+                        this.originX = this.dragStart.ox - dx / this.scaleX;
+                        this.originY = this.dragStart.oy + dy / this.scaleY;
+                        this.inertia.vx = (this.originX - prevOriginX);
+                        this.inertia.vy = (this.originY - prevOriginY);
+                        this.requestRedraw();
+                    }
+                });
+
+                window.addEventListener('mouseup', () => {
+                    if (this.isDragging && this.enableInertia) {
+                        this.inertia.active = true;
+                    }
+                    this.isDragging = false;
+                });
+
+                c.addEventListener('mouseleave', () => {
+                    this.mouse.inside = false;
+                    this.requestRedraw();
+                });
+
+                c.addEventListener('wheel', (e) => {
+                    e.preventDefault();
+                    const rect = c.getBoundingClientRect();
+                    const sx = e.clientX - rect.left;
+                    const sy = e.clientY - rect.top;
+                    const { x: wx, y: wy } = this.screenToWorld(sx, sy);
+                    const dir = Math.sign(e.deltaY);
+                    const factor = Math.pow(this.zoomFactorPerWheel, dir);
+                    const newScaleX = this.clamp(this.scaleX / factor, this.minScale, this.maxScale);
+                    const newScaleY = this.clamp(this.scaleY / factor, this.minScale, this.maxScale);
+                    this.originX = wx - sx / newScaleX;
+                    this.originY = wy + sy / newScaleY;
+                    this.scaleX = newScaleX;
+                    this.scaleY = newScaleY;
+                    this.inertia.active = false;
+                    this.requestRedraw();
+                }, { passive: false });
+
+                c.addEventListener('dblclick', () => {
+                    this.resetView();
+                });
+
+                // Touch events
+                let touchStartTime = 0;
+                c.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    touchStartTime = Date.now();
+                    const rect = c.getBoundingClientRect();
+                    if (e.touches.length === 1) {
+                        this.isDragging = true;
+                        this.isPinching = false;
+                        this.inertia.active = false;
+                        const touch = e.touches[0];
+                        const sx = touch.clientX - rect.left;
+                        const sy = touch.clientY - rect.top;
+                        this.dragStart = { sx, sy, ox: this.originX, oy: this.originY };
+                        this.mouse.sx = sx;
+                        this.mouse.sy = sy;
+                        const w = this.screenToWorld(sx, sy);
+                        this.mouse.x = w.x;
+                        this.mouse.y = w.y;
+                        this.mouse.inside = true;
+                    } else if (e.touches.length === 2) {
+                        this.isPinching = true;
+                        this.isDragging = false;
+                        const t1 = e.touches[0], t2 = e.touches[1];
+                        const sx1 = t1.clientX - rect.left;
+                        const sy1 = t1.clientY - rect.top;
+                        const sx2 = t2.clientX - rect.left;
+                        const sy2 = t2.clientY - rect.top;
+                        this.lastTouchDist = Math.hypot(sx1 - sx2, sy1 - sy2);
+                        this.mouse.sx = (sx1 + sx2) / 2;
+                        this.mouse.sy = (sy1 + sy2) / 2;
+                        const w = this.screenToWorld(this.mouse.sx, this.mouse.sy);
+                        this.mouse.x = w.x;
+                        this.mouse.y = w.y;
+                        this.mouse.inside = true;
+                    }
+                }, { passive: false });
+
+                c.addEventListener('touchmove', (e) => {
+                    e.preventDefault();
+                    const rect = c.getBoundingClientRect();
+                    const touch = e.touches[0];
+                    this.mouse.sx = touch.clientX - rect.left;
+                    this.mouse.sy = touch.clientY - rect.top;
+                    const w = this.screenToWorld(this.mouse.sx, this.mouse.sy);
+                    this.mouse.x = w.x;
+                    this.mouse.y = w.y;
+                    this.mouse.inside = true;
+
+                    if (this.isDragging && e.touches.length === 1) {
+                        const sx = touch.clientX - rect.left;
+                        const sy = touch.clientY - rect.top;
+                        const dx = sx - this.dragStart.sx;
+                        const dy = sy - this.dragStart.sy;
+                        const prevOriginX = this.originX;
+                        const prevOriginY = this.originY;
+                        this.originX = this.dragStart.ox - dx / this.scaleX;
+                        this.originY = this.dragStart.oy + dy / this.scaleY;
+                        this.inertia.vx = (this.originX - prevOriginX);
+                        this.inertia.vy = (this.originY - prevOriginY);
+                        this.requestRedraw();
+                    } else if (this.isPinching && e.touches.length === 2) {
+                        const t1 = e.touches[0], t2 = e.touches[1];
+                        const sx1 = t1.clientX - rect.left;
+                        const sy1 = t1.clientY - rect.top;
+                        const sx2 = t2.clientX - rect.left;
+                        const sy2 = t2.clientY - rect.top;
+                        const dist = Math.hypot(sx1 - sx2, sy1 - sy2);
+                        if (this.lastTouchDist > 0) {
+                            const factor = dist / this.lastTouchDist;
+                            const centerSx = (sx1 + sx2) / 2;
+                            const centerSy = (sy1 + sy2) / 2;
+                            const wx = centerSx / this.scaleX + this.originX;
+                            const wy = this.originY - centerSy / this.scaleY;
+                            const newScaleX = this.clamp(this.scaleX * factor, this.minScale, this.maxScale);
+                            const newScaleY = this.clamp(this.scaleY * factor, this.minScale, this.maxScale);
+                            this.scaleX = newScaleX;
+                            this.scaleY = newScaleY;
+                            this.originX = wx - centerSx / newScaleX;
+                            this.originY = wy + centerSy / newScaleY;
+                            this.requestRedraw();
+                        }
+                        this.lastTouchDist = dist;
+                    }
+                }, { passive: false });
+
+                c.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    if (e.touches.length === 0) {
+                        if (this.enableInertia) {
+                            this.inertia.active = true;
+                        }
+                        this.isDragging = false;
+                        this.isPinching = false;
+                        this.lastTouchDist = 0;
+                        // Optional: double tap to reset
+                        const now = Date.now();
+                        if (now - touchStartTime < 300) {
+                            this.resetView();
+                        }
+                    }
+                }, { passive: false });
+            }
+
+            resetView() {
+                this.scaleX = 60;
+                this.scaleY = 60;
+                const rect = this.canvas.getBoundingClientRect();
+                this.originX = - (rect.width / 2) / this.scaleX;
+                this.originY = (rect.height / 2) / this.scaleY;
+                this.inertia.active = false;
+                this.requestRedraw();
+            }
+
+            clamp(v, a, b) {
+                return Math.max(a, Math.min(b, v));
+            }
+
+            requestRedraw() {
+                this.needsRedraw = true;
+            }
+
+            loop() {
+                const tick = () => {
+                    if (this.inertia.active && !this.isDragging && !this.isPinching) {
+                        this.originX += this.inertia.vx;
+                        this.originY += this.inertia.vy;
+                        this.inertia.vx *= 0.9;
+                        this.inertia.vy *= 0.9;
+                        if (Math.abs(this.inertia.vx) < 1e-4 && Math.abs(this.inertia.vy) < 1e-4) {
+                            this.inertia.active = false;
+                        }
+                        this.needsRedraw = true;
+                    }
+
+                    if (this.needsRedraw) {
+                        this.render();
+                        this.needsRedraw = false;
+                    }
+                    this.anim = requestAnimationFrame(tick);
+                };
+                this.anim = requestAnimationFrame(tick);
+            }
+
+            niceStep(pixelTarget = 80, scalePxPerUnit = 60) {
+                const raw = pixelTarget / scalePxPerUnit;
+                const pow10 = Math.pow(10, Math.floor(Math.log10(raw)));
+                const candidates = [1, 2, 5].map(m => m * pow10);
+                let best = candidates[0];
+                let bd = Math.abs(candidates[0] - raw);
+                for (let i = 1; i < candidates.length; i++) {
+                    const d = Math.abs(candidates[i] - raw);
+                    if (d < bd) { bd = d; best = candidates[i]; }
+                }
+                return best;
+            }
+
+            render() {
+                const ctx = this.ctx;
+                const w = this.canvas.clientWidth;
+                const h = this.canvas.clientHeight;
+
+                ctx.save();
+                ctx.fillStyle = this.style.bg;
+                ctx.fillRect(0, 0, w, h);
+
+                this.drawGrid(w, h);
+                this.drawAxes(w, h);
+
+                for (const s of this.series) {
+                    if (s.type === 'function') this.drawFunctionSeries(s, w, h);
+                }
+
+                if (this.legend.show && this.series.some(s => s.name)) this.drawLegend(w, h);
+                if (this.mouse.inside) {
+                    this.drawCrosshair(w, h);
+                    if (this.tooltip.show) this.drawTooltip();
+                }
+
+                ctx.restore();
+            }
+
+            drawGrid(w, h) {
+                const ctx = this.ctx;
+                const xStep = this.niceStep(80, this.scaleX);
+                const yStep = this.niceStep(80, this.scaleY);
+                const xMinor = xStep / 2;
+                const yMinor = yStep / 2;
+                const xMin = this.screenToWorld(0, 0).x;
+                const xMax = this.screenToWorld(w, 0).x;
+                const yMin = this.screenToWorld(0, h).y;
+                const yMax = this.screenToWorld(0, 0).y;
+
+                ctx.lineWidth = 1;
+                ctx.strokeStyle = this.style.gridMinor;
+
+                let xStartMinor = Math.floor(xMin / xMinor) * xMinor;
+                for (let x = xStartMinor; x <= xMax; x += xMinor) {
+                    if (Math.abs(x) < 1e-9) continue;
+                    const { sx } = this.worldToScreen(x, 0);
+                    ctx.beginPath();
+                    ctx.moveTo(sx, 0);
+                    ctx.lineTo(sx, h);
+                    ctx.stroke();
+                }
+
+                let yStartMinor = Math.floor(yMin / yMinor) * yMinor;
+                for (let y = yStartMinor; y <= yMax; y += yMinor) {
+                    if (Math.abs(y) < 1e-9) continue;
+                    const { sy } = this.worldToScreen(0, y);
+                    ctx.beginPath();
+                    ctx.moveTo(0, sy);
+                    ctx.lineTo(w, sy);
+                    ctx.stroke();
+                }
+
+                ctx.strokeStyle = this.style.gridMajor;
+                let xStart = Math.floor(xMin / xStep) * xStep;
+                for (let x = xStart; x <= xMax; x += xStep) {
+                    if (Math.abs(x) < 1e-9) continue;
+                    const { sx } = this.worldToScreen(x, 0);
+                    ctx.beginPath();
+                    ctx.moveTo(sx, 0);
+                    ctx.lineTo(sx, h);
+                    ctx.stroke();
+
+                    const label = this.formatTick(x);
+                    ctx.fillStyle = this.style.text;
+                    ctx.font = '12px sans-serif';
+                    ctx.textAlign = 'center';
+                    const axisY = this.worldToScreen(0, 0).sy;
+                    const labelY = axisY < h - 18 ? (axisY > 5 ? axisY + 10 : 5) : h - 18;
+                    ctx.textBaseline = 'top';
+                    ctx.fillText(label, sx, labelY);
+                }
+
+                let yStart = Math.floor(yMin / yStep) * yStep;
+                for (let y = yStart; y <= yMax; y += yStep) {
+                    if (Math.abs(y) < 1e-9) continue;
+                    const { sy } = this.worldToScreen(0, y);
+                    ctx.beginPath();
+                    ctx.moveTo(0, sy);
+                    ctx.lineTo(w, sy);
+                    ctx.stroke();
+
+                    const label = this.formatTick(y);
+                    ctx.fillStyle = this.style.text;
+                    ctx.font = '12px sans-serif';
+                    const axisX = this.worldToScreen(0, 0).sx;
+                    const labelX = axisX > 40 ? (axisX < w - 5 ? axisX - 10 : w - 5) : 40;
+                    ctx.textAlign = 'right';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(label, labelX, sy);
+                }
+            }
+
+            formatTick(v) {
+                if (v === 0) return '0';
+                const mag = Math.max(Math.abs(v), 1e-12);
+                const logScale = Math.log10(Math.max(this.scaleX, this.scaleY));
+                let precision = logScale > 2 ? 3 : logScale > 1 ? 2 : logScale > 0 ? 1 : 0;
+
+                if (mag >= 1e5 || mag < 1e-4) {
+                    return v.toExponential(1);
+                }
+                if (Math.abs(v - Math.round(v)) < 1e-6) {
+                    return Math.round(v).toString();
+                }
+                if (Math.abs(v * 10 - Math.round(v * 10)) < 1e-6) {
+                    return (Math.round(v * 10) / 10).toFixed(1);
+                }
+                return v.toFixed(precision);
+            }
+
+            drawAxes(w, h) {
+                const ctx = this.ctx;
+                ctx.strokeStyle = this.style.axis;
+                ctx.lineWidth = 1.5;
+
+                const y0 = this.worldToScreen(0, 0).sy;
+                ctx.beginPath();
+                ctx.moveTo(0, y0);
+                ctx.lineTo(w, y0);
+                ctx.stroke();
+
+                const x0 = this.worldToScreen(0, 0).sx;
+                ctx.beginPath();
+                ctx.moveTo(x0, 0);
+                ctx.lineTo(x0, h);
+                ctx.stroke();
+
+                ctx.fillStyle = this.style.axisArrow;
+                if (w - 12 > 0) this.drawArrow(w - 12, y0, w, y0);
+                if (12 < h) this.drawArrow(x0, 12, x0, 0);
+
+                ctx.fillStyle = this.style.text;
+                ctx.font = '13px sans-serif';
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'bottom';
+                const xLabelY = Math.min(h - 8, Math.max(15, y0 - 6));
+                ctx.fillText('X', w - 8, xLabelY);
+
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'top';
+                const yLabelX = Math.min(w - 15, Math.max(6, x0 + 6));
+                ctx.fillText('Y', yLabelX, 6);
+            }
+
+            drawArrow(x1, y1, x2, y2) {
+                const ctx = this.ctx;
+                const angle = Math.atan2(y2 - y1, x2 - x1);
+                const len = 10;
+                ctx.beginPath();
+                ctx.moveTo(x2, y2);
+                ctx.lineTo(x2 - len * Math.cos(angle - Math.PI / 6),
+                           y2 - len * Math.sin(angle - Math.PI / 6));
+                ctx.lineTo(x2 - len * Math.cos(angle + Math.PI / 6),
+                           y2 - len * Math.sin(angle + Math.PI / 6));
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            drawFunctionSeries(s, w, h) {
+                const ctx = this.ctx;
+                ctx.strokeStyle = s.color;
+                ctx.lineWidth = s.width;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.beginPath();
+
+                let started = false;
+                let prevSy;
+
+                for (let sx = 0; sx <= w; sx += s.sampleStep) {
+                    const { x } = this.screenToWorld(sx, 0);
+                    let y;
+                    try {
+                        y = s.fn(x);
+                        if (!isFinite(y)) {
+                            started = false;
+                            continue;
+                        }
+                    } catch {
+                        started = false;
+                        continue;
+                    }
+                    const { sy } = this.worldToScreen(0, y);
+
+                    if (sy < -h || sy > 2 * h) {
+                        if (started && prevSy !== undefined && (prevSy < -h || prevSy > 2 * h || Math.abs(sy - prevSy) > h * 2)) {
+                            started = false;
+                        } else if (!started) {
+                            prevSy = sy;
+                            continue;
+                        }
+                    }
+
+                    if (!started) {
+                        ctx.moveTo(sx, sy);
+                        started = true;
+                    } else {
+                        ctx.lineTo(sx, sy);
+                    }
+                    prevSy = sy;
+                }
+                ctx.stroke();
+            }
+
+            drawLegend(w, h) {
+                const ctx = this.ctx;
+                const padding = 10;
+                const lineLen = 18;
+                const rowH = 22;
+                let x = w - 160, y = 15;
+
+                ctx.font = '14px sans-serif';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'middle';
+
+                const namedSeries = this.series.filter(s => s.name);
+                if (namedSeries.length === 0) return;
+
+                let maxTextWidth = 0;
+                for (const s of namedSeries) {
+                    maxTextWidth = Math.max(maxTextWidth, ctx.measureText(s.name).width);
+                }
+
+                const boxW = maxTextWidth + lineLen + padding * 2 + 8;
+                const boxH = padding * 2 + namedSeries.length * rowH;
+
+                x = Math.max(padding, w - boxW - padding);
+                y = Math.max(padding, padding);
+
+                ctx.fillStyle = this.style.tooltipBg;
+                ctx.strokeStyle = this.style.tooltipBorder;
+                ctx.beginPath();
+                ctx.roundRect(x - padding, y - padding, boxW, boxH, 8);
+                ctx.fill();
+                ctx.stroke();
+
+                let yy = y;
+                for (const s of namedSeries) {
+                    ctx.strokeStyle = s.color;
+                    ctx.lineWidth = s.width;
+                    ctx.beginPath();
+                    ctx.moveTo(x, yy);
+                    ctx.lineTo(x + lineLen, yy);
+                    ctx.stroke();
+
+                    ctx.fillStyle = this.style.legendText;
+                    ctx.fillText(s.name, x + lineLen + 8, yy);
+                    yy += rowH;
+                }
+            }
+
+            drawCrosshair(w, h) {
+                const ctx = this.ctx;
+                const sx = this.mouse.sx;
+                const sy = this.mouse.sy;
+                ctx.strokeStyle = this.style.crosshair;
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(sx, 0);
+                ctx.lineTo(sx, h);
+                ctx.moveTo(0, sy);
+                ctx.lineTo(w, sy);
+                ctx.stroke();
+            }
+
+            drawTooltip() {
+                const ctx = this.ctx;
+                const { sx, sy, x, y } = this.mouse;
+                const text = `(${this.formatTick(x)}, ${this.formatTick(y)})`;
+
+                ctx.font = this.tooltip.font;
+                const metrics = ctx.measureText(text);
+                const padding = this.tooltip.padding;
+                const tw = metrics.width + padding * 2;
+                const th = 20 + padding * 2;
+                let bx = sx + 12, by = sy + 12;
+
+                const cw = this.canvas.clientWidth, ch = this.canvas.clientHeight;
+                if (bx + tw + 8 > cw) bx = cw - tw - 8;
+                if (by + th + 8 > ch) by = ch - th - 8;
+                if (bx < 8) bx = 8;
+                if (by < 8) by = 8;
+
+                ctx.fillStyle = this.style.tooltipBg;
+                ctx.strokeStyle = this.style.tooltipBorder;
+                ctx.beginPath();
+                ctx.roundRect(bx, by, tw, th, 5);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.fillStyle = this.style.text;
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(text, bx + padding, by + th / 2);
+            }
+        }
+
+        // Global Variables and UI Logic
+        let graph;
+        let equations = [];
+        let activeMathField = null;
+        const equationColors = ['#2a62ff', '#e43d2f', '#008b57', '#7a3cff', '#FF8C00', '#17a2b8', '#8A2BE2', '#DC143C'];
+        let colorIndex = 0;
+        const MQ = MathQuill.getInterface(2);
+
+        function getNextColor() {
+            const color = equationColors[colorIndex % equationColors.length];
+            colorIndex++;
+            return color;
+        }
+
+        function addEquationInput(initialLatex = 'y=', color = getNextColor()) {
+            const id = Date.now() + Math.random();
+            const equationListDiv = document.getElementById('equation-list');
+
+            const groupDiv = document.createElement('div');
+            groupDiv.className = 'equation-input-group';
+            groupDiv.dataset.id = id;
+
+            const colorInput = document.createElement('input');
+            colorInput.type = 'color';
+            colorInput.className = 'color-picker';
+            colorInput.value = color;
+
+            const mqSpan = document.createElement('span');
+            mqSpan.className = 'mq-editable-field mq-math-mode';
+
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'remove-btn';
+            removeBtn.innerHTML = '&times;';
+            removeBtn.title = 'Remove equation';
+
+            groupDiv.append(colorInput, mqSpan, removeBtn);
+            equationListDiv.appendChild(groupDiv);
+
+            const mathField = MQ.MathField(mqSpan, {
+                spaceBehavesLikeTab: true,
+                handlers: {
+                    edit: () => updateEquation(id),
+                    focus: () => {
+                        activeMathField = mathField;
+                        groupDiv.classList.add('focused');
+                    },
+                    blur: () => {
+                        groupDiv.classList.remove('focused');
+                    }
+                }
+            });
+
+            mathField.latex(initialLatex);
+
+            const equationObj = { id, mathField, color, fn: null, mqEl: groupDiv, colorInputEl: colorInput, seriesRef: null, expr: '' };
+            equations.push(equationObj);
+
+            colorInput.addEventListener('input', (e) => {
+                equationObj.color = e.target.value;
+                if (equationObj.seriesRef) {
+                    equationObj.seriesRef.color = equationObj.color;
+                    graph.requestRedraw();
+                }
+            });
+
+            removeBtn.addEventListener('click', () => removeEquation(id));
+
+            updateEquation(id);
+        }
+
+        function updateEquation(id) {
+            const eq = equations.find(e => e.id === id);
+            if (!eq) return;
+
+            const latex = eq.mathField.latex();
+            let parsedFn = null;
+            let error = false;
+
+            if (eq.seriesRef) {
+                graph.series = graph.series.filter(s => s !== eq.seriesRef);
+                eq.seriesRef = null;
+            }
+
+            if (latex && latex.trim() !== 'y=' && latex.trim() !== '') {
+                try {
+                    // Remove 'y=' prefix for evaluation
+                    const expr = latex.replace(/^(y=)/, '');
+                    eq.expr = expr;
+                    // Compile with evaluatex, enabling LaTeX mode
+                    const compiledFn = evaluatex(expr, {}, { latex: true });
+                    // Test compilation
+                    compiledFn({ x: 0 });
+                    compiledFn({ x: 1 });
+
+                    parsedFn = (xVal) => {
+                        try {
+                            return compiledFn({ x: xVal });
+                        } catch {
+                            return NaN;
+                        }
+                    };
+                } catch (e) {
+                    console.warn('Error parsing equation:', e);
+                    eq.mqEl.classList.add('error');
+                    error = true;
+                }
+            }
+
+            if (!error && parsedFn) {
+                eq.fn = parsedFn;
+                eq.seriesRef = graph.addFunction(parsedFn, {
+                    color: eq.color,
+                    width: 2,
+                    sampleStep: 1,
+                    name: latex
+                });
+                eq.mqEl.classList.remove('error');
+            } else {
+                eq.fn = null;
+            }
+            graph.requestRedraw();
+        }
+
+        function removeEquation(id) {
+            const index = equations.findIndex(e => e.id === id);
+            if (index > -1) {
+                const eq = equations[index];
+                if (eq.seriesRef) {
+                    graph.series = graph.series.filter(s => s !== eq.seriesRef);
+                }
+                eq.mqEl.remove();
+                equations.splice(index, 1);
+                graph.requestRedraw();
+                if (activeMathField === eq.mathField) {
+                    activeMathField = null;
+                }
+            }
+        }
+
+        // Virtual Keyboard
+        const virtualKeyboardContainer = document.getElementById('virtual-keyboard-container');
+        const keyboardToggleBtn = document.getElementById('keyboard-toggle-btn');
+        let isKeyboardVisible = false;
+
+        const keyboardLayout = [
+            [{ label: '1', latex: '1' }, { label: '2', latex: '2' }, { label: '3', latex: '3' }, { label: '+', latex: '+', className: 'op' }, { label: '−', latex: '-', className: 'op' }],
+            [{ label: '4', latex: '4' }, { label: '5', latex: '5' }, { label: '6', latex: '6' }, { label: '×', latex: '\\times', className: 'op' }, { label: '÷', latex: '\\div', className: 'op' }],
+            [{ label: '7', latex: '7' }, { label: '8', latex: '8' }, { label: '9', latex: '9' }, { label: 'x', latex: 'x' }, { label: '^', latex: '^', className: 'op' }],
+            [{ label: '.', latex: '.' }, { label: '0', latex: '0' }, { label: '(', latex: '(', className: 'op' }, { label: ')', latex: ')', className: 'op' }, { label: 'π', latex: '\\pi', className: 'special' }],
+            [{ label: 'e', latex: 'e', className: 'special' }, { label: 'sin', latex: '\\sin(', className: 'func' }, { label: 'cos', latex: '\\cos(', className: 'func' }, { label: 'tan', latex: '\\tan(', className: 'func' }, { label: '|x|', latex: '\\abs{', className: 'func' }],
+            [{ label: 'ln', latex: '\\ln(', className: 'func' }, { label: 'log', latex: '\\log(', className: 'func' }, { label: '√', latex: '\\sqrt{', className: 'func' }, { label: 'frac', latex: '\\frac{', className: 'func' }, { label: 'Back', latex: 'Backspace', className: 'backspace' }],
+            [{ label: 'Clear', latex: 'Clear', className: 'clear wide' }, { label: 'Enter', latex: 'Enter', className: 'enter wide' }]
+        ];
+
+        function createKeyboardButton(btnDef) {
+            const btn = document.createElement('button');
+            btn.className = `keyboard-btn ${btnDef.className || ''}`;
+            btn.innerHTML = btnDef.label;
+            btn.dataset.latex = btnDef.latex;
+
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                if (activeMathField) {
+                    const ltx = btn.dataset.latex;
+                    if (ltx === 'Clear') {
+                        activeMathField.latex('');
+                    } else if (ltx === 'Backspace') {
+                        activeMathField.keystroke('Backspace');
+                    } else if (ltx === 'Enter') {
+                        activeMathField.blur();
+                        virtualKeyboardContainer.classList.remove('visible');
+                        isKeyboardVisible = false;
+                        keyboardToggleBtn.textContent = 'Show Keyboard';
+                    } else if (ltx === '\\sqrt{' || ltx === '\\abs{') {
+                        activeMathField.cmd(ltx);
+                    } else if (ltx === '\\frac{') {
+                        activeMathField.cmd(ltx);
+                        activeMathField.keystroke('Left');
+                    } else if (ltx.endsWith('(') && ltx.length > 1) {
+                        activeMathField.cmd(ltx.slice(0, -1));
+                        activeMathField.write('(');
+                        activeMathField.keystroke('Left');
+                    } else {
+                        activeMathField.write(ltx);
+                    }
+                    activeMathField.focus();
+                }
+            });
+            return btn;
+        }
+
+        function populateVirtualKeyboard() {
+            virtualKeyboardContainer.innerHTML = '';
+            keyboardLayout.forEach(row => {
+                row.forEach(btnDef => {
+                    virtualKeyboardContainer.appendChild(createKeyboardButton(btnDef));
+                });
+            });
+        }
+
+        keyboardToggleBtn.addEventListener('click', () => {
+            isKeyboardVisible = !isKeyboardVisible;
+            virtualKeyboardContainer.classList.toggle('visible', isKeyboardVisible);
+            keyboardToggleBtn.textContent = isKeyboardVisible ? 'Hide Keyboard' : 'Show Keyboard';
+            if (isKeyboardVisible && equations.length > 0 && !activeMathField) {
+                equations[0].mathField.focus();
+            }
+        });
+
+        // 3D Button
+        document.getElementById('3d-btn').addEventListener('click', () => {
+            window.location.href = 'abc.html';
+        });
+
+        // Initialization
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('graph-canvas');
+            if (!canvas) {
+                console.error("Canvas element with ID 'graph-canvas' not found.");
+                return;
+            }
+
+            graph = new Graph2D(canvas, {
+                scaleX: 60, scaleY: 60, enableInertia: true
+            });
+
+            addEquationInput('y=\\sin(x)', equationColors[0]);
+            addEquationInput('y=x^2', equationColors[1]);
+            addEquationInput('y=\\frac{1}{x^3}', equationColors[2]);
+
+            document.getElementById('add-equation-btn').addEventListener('click', () => {
+                addEquationInput();
+            });
+
+            document.getElementById('reset-btn').addEventListener('click', () => {
+                graph.resetView();
+            });
+
+            populateVirtualKeyboard();
+            graph.resize();
+        });
+    </script>
+</body>
+</html>
