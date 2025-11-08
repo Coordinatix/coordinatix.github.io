@@ -50,29 +50,35 @@
             right: 15px;
             top: 50%;
             transform: translateY(-50%);
-            width: 40px;
-            height: 40px;
+            width: 44px;
+            height: 44px;
             border-radius: 50%;
-            background-color: #db5334;
+            background: linear-gradient(135deg, #db5334, #c0392b);
             color: white;
             border: none;
-            font-size: 20px;
+            font-size: 16px;
             font-weight: bold;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: background-color 0.2s;
+            transition: all 0.2s ease-in-out;
             line-height: 1;
             text-align: center;
             padding: 0;
             box-sizing: border-box;
             white-space: nowrap;
             overflow: hidden;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 12px rgba(219, 83, 52, 0.3), inset 0 1px 0 rgba(255,255,255,0.2);
         }
         .view-3d-btn:hover {
-            background-color: #2980b9;
+            background: linear-gradient(135deg, #2980b9, #3498db);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(52, 152, 219, 0.3), inset 0 1px 0 rgba(255,255,255,0.2);
+        }
+        .view-3d-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 8px rgba(219, 83, 52, 0.3), inset 0 1px 2px rgba(0,0,0,0.1);
         }
         #equation-list {
             flex-grow: 1;
@@ -84,51 +90,81 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 32px;
-            height: 24px;
-            background-color: #ffffff;
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(135deg, #ffffff, #f8f9fa);
             color: #2c3e50;
-            border: 1px solid #e0e0e0;
-            border-radius: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 50%;
             cursor: pointer;
-            font-size: 14px;
-            transition: all 0.15s ease-in-out;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            font-size: 18px;
+            font-weight: 600;
+            transition: all 0.2s ease-in-out;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.5);
             position: absolute;
             padding: 0;
             font-family: system-ui, -apple-system, sans-serif;
+            user-select: none;
         }
         
         .action-btn:hover {
-            background-color: #f8f9fa;
-            border-color: #ccc;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+            background: linear-gradient(135deg, #f8f9fa, #ffffff);
+            border-color: #d0d0d0;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.5);
         }
         
         .action-btn:active {
-            background-color: #f1f3f5;
-            box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+            background: linear-gradient(135deg, #f1f3f5, #f8f9fa);
+            transform: translateY(0);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1), inset 0 1px 2px rgba(0,0,0,0.1);
         }
         
         #keyboard-toggle-btn {
             bottom: 15px;
             right: 15px;
             z-index: 1000;
-            width: 28px;
+            background: linear-gradient(135deg, #2ecc71, #27ae60);
+            color: white;
+            border-color: #27ae60;
+            box-shadow: 0 4px 12px rgba(46, 204, 113, 0.3);
+        }
+        
+        #keyboard-toggle-btn:hover {
+            background: linear-gradient(135deg, #27ae60, #219a52);
+            box-shadow: 0 6px 16px rgba(46, 204, 113, 0.4);
         }
         
         #add-equation-btn {
             top: 5px;
             left: 5px;
             z-index: 10;
-            width: 24px;
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            border-color: #2980b9;
+            box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+            font-size: 20px;
+        }
+        
+        #add-equation-btn:hover {
+            background: linear-gradient(135deg, #2980b9, #1f618d);
+            box-shadow: 0 6px 16px rgba(52, 152, 219, 0.4);
         }
         
         #reset-btn {
             top: 15px;
             left: 15px;
             z-index: 100;
-            width: 26px;
+            background: linear-gradient(135deg, #9b59b6, #8e44ad);
+            color: white;
+            border-color: #8e44ad;
+            box-shadow: 0 4px 12px rgba(155, 89, 182, 0.3);
+            font-size: 16px;
+        }
+        
+        #reset-btn:hover {
+            background: linear-gradient(135deg, #8e44ad, #7d3c98);
+            box-shadow: 0 6px 16px rgba(155, 89, 182, 0.4);
         }
         .equation-input-group {
             display: flex;
@@ -179,18 +215,33 @@
             border: none;
         }
         .equation-input-group .remove-btn {
-            background: none;
-            border: none;
-            font-size: 1.5em;
-            color: #aaa;
+            background: linear-gradient(135deg, #ffffff, #f8f9fa);
+            border: 2px solid #e0e0e0;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            font-size: 16px;
+            color: #e74c3c;
             cursor: pointer;
             margin-left: 8px;
-            padding: 0 5px;
+            padding: 0;
             line-height: 1;
-            transition: color 0.2s;
+            transition: all 0.2s ease-in-out;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.5);
         }
         .equation-input-group .remove-btn:hover {
-            color: #e74c3c;
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            color: white;
+            border-color: #c0392b;
+            transform: translateY(-1px) scale(1.05);
+            box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+        }
+        .equation-input-group .remove-btn:active {
+            transform: translateY(0) scale(1);
+            box-shadow: 0 2px 6px rgba(231, 76, 60, 0.3), inset 0 1px 2px rgba(0,0,0,0.1);
         }
         .sidebar-btn {
             display: block;
@@ -212,18 +263,6 @@
         }
         .sidebar-btn:active {
             transform: translateY(0);
-        }
-        #keyboard-toggle-btn {
-            background-color: #2ecc71;
-        }
-        #keyboard-toggle-btn:hover {
-            background-color: #27ae60;
-        }
-        #reset-btn {
-            background-color: #9b59b6;
-        }
-        #reset-btn:hover {
-            background-color: #8e44ad;
         }
 
         /* Graph Area */
@@ -267,59 +306,81 @@
             display: flex;
         }
         .keyboard-btn {
-            background-color: #f0f4f7;
-            border: 1px solid #dcdfe4;
-            border-radius: 8px;
+            background: linear-gradient(135deg, #f0f4f7, #ffffff);
+            border: 2px solid #dcdfe4;
+            border-radius: 12px;
             padding: 12px 18px;
             font-size: 1.1em;
             font-weight: 500;
             cursor: pointer;
             min-width: 50px;
             text-align: center;
-            transition: background-color 0.2s, border-color 0.2s;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            transition: all 0.2s ease-in-out;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.5);
             user-select: none;
         }
         .keyboard-btn:hover {
-            background-color: #e5e9ed;
+            background: linear-gradient(135deg, #e5e9ed, #f8f9fa);
             border-color: #cdd2d9;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.5);
         }
         .keyboard-btn:active {
-            background-color: #dbe0e5;
-            box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+            background: linear-gradient(135deg, #dbe0e5, #e5e9ed);
+            transform: translateY(0);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08), inset 0 1px 2px rgba(0,0,0,0.1);
         }
         .keyboard-btn.op {
-            background-color: #e8f5e9;
+            background: linear-gradient(135deg, #e8f5e9, #f1f8e9);
             border-color: #c8e6c9;
             color: #2e7d32;
+            box-shadow: 0 2px 8px rgba(76, 175, 80, 0.2);
+        }
+        .keyboard-btn.op:hover {
+            background: linear-gradient(135deg, #c8e6c9, #dcedc8);
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
         }
         .keyboard-btn.func {
-            background-color: #e3f2fd;
+            background: linear-gradient(135deg, #e3f2fd, #f5faff);
             border-color: #bbdefb;
             color: #1976d2;
+            box-shadow: 0 2px 8px rgba(33, 150, 243, 0.2);
+        }
+        .keyboard-btn.func:hover {
+            background: linear-gradient(135deg, #bbdefb, #e1f5fe);
+            box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
         }
         .keyboard-btn.special {
-            background-color: #fff3e0;
+            background: linear-gradient(135deg, #fff3e0, #fff8e1);
             border-color: #ffe0b2;
             color: #ef6c00;
+            box-shadow: 0 2px 8px rgba(255, 152, 0, 0.2);
+        }
+        .keyboard-btn.special:hover {
+            background: linear-gradient(135deg, #ffe0b2, #ffecb3);
+            box-shadow: 0 4px 12px rgba(255, 152, 0, 0.3);
         }
         .keyboard-btn.clear, .keyboard-btn.backspace {
-            background-color: #ef9a9a;
+            background: linear-gradient(135deg, #ef9a9a, #ffcdd2);
             border-color: #e57373;
             color: #c62828;
             font-weight: bold;
+            box-shadow: 0 2px 8px rgba(244, 67, 54, 0.2);
         }
         .keyboard-btn.clear:hover, .keyboard-btn.backspace:hover {
-            background-color: #e57373;
+            background: linear-gradient(135deg, #e57373, #ef9a9a);
+            box-shadow: 0 4px 12px rgba(244, 67, 54, 0.3);
         }
         .keyboard-btn.enter {
-            background-color: #a5d6a7;
+            background: linear-gradient(135deg, #a5d6a7, #c8e6c9);
             border-color: #81c784;
             color: #388e3c;
             font-weight: bold;
+            box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
         }
         .keyboard-btn.enter:hover {
-            background-color: #81c784;
+            background: linear-gradient(135deg, #81c784, #a5d6a7);
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
         }
         .keyboard-btn.wide {
             flex-basis: calc(33.33% - 10px);
@@ -371,15 +432,17 @@
                 margin-right: 15px;
             }
             .equation-input-group .remove-btn {
-                font-size: 2em;
+                width: 36px;
+                height: 36px;
+                font-size: 18px;
                 margin-left: 15px;
                 padding: 0 10px;
-                min-width: 50px;
+                min-width: 36px;
             }
             .view-3d-btn {
                 width: 50px;
                 height: 50px;
-                font-size: 24px;
+                font-size: 18px;
                 right: 10px;
             }
             #graph-area {
@@ -398,6 +461,7 @@
                 font-size: 1.2em;
                 min-width: 60px;
                 min-height: 50px;
+                border-radius: 14px;
             }
             .keyboard-btn.wide {
                 flex-basis: calc(50% - 8px);
@@ -411,11 +475,11 @@
                 position: absolute;
                 top: 10px;
                 left: 10px;
-                width: 48px;
-                height: 48px;
+                width: 52px;
+                height: 52px;
                 padding: 0;
                 border-radius: 50%;
-                font-size: 1.8em;
+                font-size: 22px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
@@ -425,11 +489,11 @@
                 position: fixed;
                 bottom: 20px;
                 right: 20px;
-                width: 48px;
-                height: 48px;
+                width: 52px;
+                height: 52px;
                 padding: 0;
                 border-radius: 50%;
-                font-size: 1.8em;
+                font-size: 20px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
@@ -440,16 +504,21 @@
                 position: absolute;
                 top: 10px;
                 left: 10px;
-                width: 48px;
-                height: 48px;
+                width: 52px;
+                height: 52px;
                 padding: 0;
                 border-radius: 50%;
-                font-size: 1.8em;
+                font-size: 18px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 margin: 0;
                 z-index: 100;
+            }
+            .action-btn {
+                width: 52px;
+                height: 52px;
+                font-size: 20px;
             }
         }
 
@@ -465,6 +534,16 @@
             }
             #equation-list {
                 max-height: 120px;
+            }
+            .action-btn {
+                width: 48px;
+                height: 48px;
+                font-size: 18px;
+            }
+            #add-equation-btn, #keyboard-toggle-btn, #reset-btn.mobile {
+                width: 48px;
+                height: 48px;
+                font-size: 18px;
             }
         }
     </style>
