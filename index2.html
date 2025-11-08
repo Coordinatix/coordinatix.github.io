@@ -84,27 +84,37 @@
             flex-grow: 1;
             margin: 40px 0 15px 0;
             position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+        .equation-container {
+            margin-bottom: 20px;
+            padding: 10px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .equation-container:last-child {
+            border-bottom: none;
+            margin-bottom: 10px;
         }
         
         .action-btn {
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 44px;
-            height: 44px;
-            background: linear-gradient(135deg, #ffffff, #f8f9fa);
-            color: #2c3e50;
-            border: 2px solid #e0e0e0;
-            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            background-color: #ffffff;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-size: 20px 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
             cursor: pointer;
-            font-size: 18px;
-            font-weight: 600;
             transition: all 0.2s ease-in-out;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.5);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
             position: absolute;
             padding: 0;
-            font-family: system-ui, -apple-system, sans-serif;
-            user-select: none;
+            color: transparent;
         }
         
         .action-btn:hover {
@@ -124,42 +134,20 @@
             bottom: 15px;
             right: 15px;
             z-index: 1000;
-            background: linear-gradient(135deg, #2ecc71, #27ae60);
-            color: white;
-            border-color: #27ae60;
-            box-shadow: 0 4px 12px rgba(46, 204, 113, 0.3);
-        }
-        
-        #keyboard-toggle-btn:hover {
-            background: linear-gradient(135deg, #27ae60, #219a52);
-            box-shadow: 0 6px 16px rgba(46, 204, 113, 0.4);
-        }
-        
-        #add-equation-btn {
-            top: 5px;
-            left: 5px;
-            z-index: 10;
-            background: linear-gradient(135deg, #3498db, #2980b9);
-            color: white;
-            border-color: #2980b9;
-            box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
-            font-size: 20px;
-        }
-        
-        #add-equation-btn:hover {
-            background: linear-gradient(135deg, #2980b9, #1f618d);
-            box-shadow: 0 6px 16px rgba(52, 152, 219, 0.4);
+            background-image: url('images/keyboard.png');
         }
         
         #reset-btn {
             top: 15px;
             left: 15px;
             z-index: 100;
-            background: linear-gradient(135deg, #9b59b6, #8e44ad);
-            color: white;
-            border-color: #8e44ad;
-            box-shadow: 0 4px 12px rgba(155, 89, 182, 0.3);
-            font-size: 16px;
+            background-image: url('images/home.png');
+        }
+        
+        .action-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+            background-color: #f8f9fa;
         }
         
         #reset-btn:hover {
@@ -220,8 +208,6 @@
             border-radius: 50%;
             width: 28px;
             height: 28px;
-            font-size: 16px;
-            color: #e74c3c;
             cursor: pointer;
             margin-left: 8px;
             padding: 0;
@@ -231,13 +217,19 @@
             align-items: center;
             justify-content: center;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.5);
+            background-image: url('images/delete.svg');
+            background-size: 12px 12px;
+            background-repeat: no-repeat;
+            background-position: center;
+            color: transparent;
+            font-size: 0;
         }
         .equation-input-group .remove-btn:hover {
             background: linear-gradient(135deg, #e74c3c, #c0392b);
-            color: white;
             border-color: #c0392b;
             transform: translateY(-1px) scale(1.05);
             box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+            background-image: url('images/delete.svg');
         }
         .equation-input-group .remove-btn:active {
             transform: translateY(0) scale(1);
@@ -434,10 +426,10 @@
             .equation-input-group .remove-btn {
                 width: 36px;
                 height: 36px;
-                font-size: 18px;
                 margin-left: 15px;
                 padding: 0 10px;
                 min-width: 36px;
+                background-size: 16px 16px;
             }
             .view-3d-btn {
                 width: 50px;
@@ -471,20 +463,6 @@
                 font-size: 16px; /* Ensure base font size for mobile */
             }
             /* Mobile button positions */
-            #add-equation-btn {
-                position: absolute;
-                top: 10px;
-                left: 10px;
-                width: 52px;
-                height: 52px;
-                padding: 0;
-                border-radius: 50%;
-                font-size: 22px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                margin: 0;
-            }
             #keyboard-toggle-btn {
                 position: fixed;
                 bottom: 20px;
@@ -499,6 +477,7 @@
                 justify-content: center;
                 z-index: 150;
                 margin: 0;
+                background-size: 24px 24px;
             }
             #reset-btn.mobile {
                 position: absolute;
@@ -514,11 +493,13 @@
                 justify-content: center;
                 margin: 0;
                 z-index: 100;
+                background-size: 24px 24px;
             }
             .action-btn {
                 width: 52px;
                 height: 52px;
                 font-size: 20px;
+                background-size: 24px 24px;
             }
         }
 
@@ -539,11 +520,18 @@
                 width: 48px;
                 height: 48px;
                 font-size: 18px;
+                background-size: 20px 20px;
             }
-            #add-equation-btn, #keyboard-toggle-btn, #reset-btn.mobile {
+            #keyboard-toggle-btn, #reset-btn.mobile {
                 width: 48px;
                 height: 48px;
                 font-size: 18px;
+                background-size: 20px 20px;
+            }
+            .equation-input-group .remove-btn {
+                width: 32px;
+                height: 32px;
+                background-size: 14px 14px;
             }
         }
     </style>
@@ -552,13 +540,12 @@
     <div id="app-container">
         <div id="sidebar">
             <h2>Coordinatix 2D<button id="view-3d-btn" class="view-3d-btn">3D</button></h2>
-            <button id="add-equation-btn" class="action-btn" title="Add Equation">＋</button>
             <div id="equation-list"></div>
         </div>
         <div id="graph-area">
             <canvas id="graph-canvas"></canvas>
-            <button id="reset-btn" class="action-btn" title="Reset View">↺</button>
-            <button id="keyboard-toggle-btn" class="action-btn" title="Toggle Keyboard">⌨</button>
+            <button id="reset-btn" class="action-btn" title="Reset View" aria-label="Reset View"></button>
+            <button id="keyboard-toggle-btn" class="action-btn" title="Toggle Keyboard" aria-label="Toggle Keyboard"></button>
             <div id="virtual-keyboard-container"></div>
         </div>
     </div>
@@ -612,6 +599,14 @@
                 this.needsRedraw = true;
                 this.anim = null;
                 this._initialOriginSet = false;
+
+                // Double-tap support
+                this.lastTapTime = 0;
+                this.tapThreshold = 10;
+                this.tapDuration = 250;
+                this.doubleTapDuration = 300;
+                this.tapStart = null;
+                this.dragged = false;
 
                 this.resizeObserver = new ResizeObserver(() => this.resize());
                 this.resizeObserver.observe(this.canvas);
@@ -746,18 +741,15 @@
                 });
 
                 // Touch events
-                let touchStartTime = 0;
                 c.addEventListener('touchstart', (e) => {
                     e.preventDefault();
-                    touchStartTime = Date.now();
                     const rect = c.getBoundingClientRect();
                     if (e.touches.length === 1) {
-                        this.isDragging = true;
-                        this.isPinching = false;
-                        this.inertia.active = false;
                         const touch = e.touches[0];
                         const sx = touch.clientX - rect.left;
                         const sy = touch.clientY - rect.top;
+                        this.tapStart = { sx, sy, time: Date.now() };
+                        this.dragged = false;
                         this.dragStart = { sx, sy, ox: this.originX, oy: this.originY };
                         this.mouse.sx = sx;
                         this.mouse.sy = sy;
@@ -765,7 +757,12 @@
                         this.mouse.x = w.x;
                         this.mouse.y = w.y;
                         this.mouse.inside = true;
+                        this.isDragging = true;
+                        this.isPinching = false;
+                        this.inertia.active = false;
                     } else if (e.touches.length === 2) {
+                        this.tapStart = null;
+                        this.dragged = false;
                         this.isPinching = true;
                         this.isDragging = false;
                         const t1 = e.touches[0], t2 = e.touches[1];
@@ -786,26 +783,35 @@
                 c.addEventListener('touchmove', (e) => {
                     e.preventDefault();
                     const rect = c.getBoundingClientRect();
-                    const touch = e.touches[0];
-                    this.mouse.sx = touch.clientX - rect.left;
-                    this.mouse.sy = touch.clientY - rect.top;
-                    const w = this.screenToWorld(this.mouse.sx, this.mouse.sy);
-                    this.mouse.x = w.x;
-                    this.mouse.y = w.y;
-                    this.mouse.inside = true;
-
-                    if (this.isDragging && e.touches.length === 1) {
+                    if (e.touches.length === 1) {
+                        const touch = e.touches[0];
                         const sx = touch.clientX - rect.left;
                         const sy = touch.clientY - rect.top;
-                        const dx = sx - this.dragStart.sx;
-                        const dy = sy - this.dragStart.sy;
-                        const prevOriginX = this.originX;
-                        const prevOriginY = this.originY;
-                        this.originX = this.dragStart.ox - dx / this.scaleX;
-                        this.originY = this.dragStart.oy + dy / this.scaleY;
-                        this.inertia.vx = (this.originX - prevOriginX);
-                        this.inertia.vy = (this.originY - prevOriginY);
-                        this.requestRedraw();
+                        this.mouse.sx = sx;
+                        this.mouse.sy = sy;
+                        const w = this.screenToWorld(this.mouse.sx, this.mouse.sy);
+                        this.mouse.x = w.x;
+                        this.mouse.y = w.y;
+                        this.mouse.inside = true;
+
+                        if (this.tapStart && !this.dragged) {
+                            const dist = Math.hypot(sx - this.tapStart.sx, sy - this.tapStart.sy);
+                            if (dist > this.tapThreshold) {
+                                this.dragged = true;
+                            }
+                        }
+
+                        if (this.isDragging) {
+                            const dx = sx - this.dragStart.sx;
+                            const dy = sy - this.dragStart.sy;
+                            const prevOriginX = this.originX;
+                            const prevOriginY = this.originY;
+                            this.originX = this.dragStart.ox - dx / this.scaleX;
+                            this.originY = this.dragStart.oy + dy / this.scaleY;
+                            this.inertia.vx = (this.originX - prevOriginX);
+                            this.inertia.vy = (this.originY - prevOriginY);
+                            this.requestRedraw();
+                        }
                     } else if (this.isPinching && e.touches.length === 2) {
                         const t1 = e.touches[0], t2 = e.touches[1];
                         const sx1 = t1.clientX - rect.left;
@@ -834,17 +840,23 @@
                 c.addEventListener('touchend', (e) => {
                     e.preventDefault();
                     if (e.touches.length === 0) {
-                        if (this.enableInertia) {
+                        if (this.enableInertia && this.dragged) {
                             this.inertia.active = true;
                         }
                         this.isDragging = false;
                         this.isPinching = false;
                         this.lastTouchDist = 0;
-                        // Optional: double tap to reset
-                        const now = Date.now();
-                        if (now - touchStartTime < 300) {
-                            this.resetView();
+
+                        // Double-tap detection
+                        if (this.tapStart && !this.dragged && (Date.now() - this.tapStart.time < this.tapDuration)) {
+                            const now = Date.now();
+                            if (now - this.lastTapTime < this.doubleTapDuration) {
+                                this.resetView();
+                            }
+                            this.lastTapTime = now;
                         }
+                        this.tapStart = null;
+                        this.dragged = false;
                     }
                 }, { passive: false });
             }
@@ -1228,10 +1240,18 @@
             return color;
         }
 
-        function addEquationInput(initialLatex = 'y=', color = getNextColor()) {
-            const id = Date.now() + Math.random();
+        function addNewContainer() {
             const equationListDiv = document.getElementById('equation-list');
+            const containerDiv = document.createElement('div');
+            containerDiv.className = 'equation-container';
+            equationListDiv.appendChild(containerDiv);
+            for (let i = 0; i < 3; i++) {
+                addEquationInput('y=', getNextColor(), containerDiv);
+            }
+        }
 
+        function addEquationInput(initialLatex = 'y=', color = getNextColor(), parentDiv = document.getElementById('equation-list')) {
+            const id = Date.now() + Math.random();
             const groupDiv = document.createElement('div');
             groupDiv.className = 'equation-input-group';
             groupDiv.dataset.id = id;
@@ -1246,11 +1266,11 @@
 
             const removeBtn = document.createElement('button');
             removeBtn.className = 'remove-btn';
-            removeBtn.innerHTML = '&times;';
             removeBtn.title = 'Remove equation';
+            removeBtn.innerHTML = ''; // Use background SVG
 
             groupDiv.append(colorInput, mqSpan, removeBtn);
-            equationListDiv.appendChild(groupDiv);
+            parentDiv.appendChild(groupDiv);
 
             const mathField = MQ.MathField(mqSpan, {
                 spaceBehavesLikeTab: true,
@@ -1294,6 +1314,8 @@
             const eq = equations.find(e => e.id === id);
             if (!eq) return;
 
+            const wasEmpty = !eq.fn;
+            const index = equations.indexOf(eq);
             const latex = eq.mathField.latex();
             let parsedFn = null;
             let error = false;
@@ -1337,6 +1359,11 @@
                     name: latex
                 });
                 eq.mqEl.classList.remove('error');
+
+                // Logic for adding extra container when last container is full
+                if (wasEmpty && equations.length % 3 === 0 && index === equations.length - 1) {
+                    addNewContainer();
+                }
             } else {
                 eq.fn = null;
             }
@@ -1443,7 +1470,6 @@
             }
 
             // Update button texts and sizes
-            document.getElementById('add-equation-btn').textContent = '+';
             document.getElementById('keyboard-toggle-btn').textContent = '⌨️';
             document.getElementById('reset-btn').textContent = '⟲';
 
@@ -1453,13 +1479,17 @@
                 scaleX: 60, scaleY: 60, enableInertia: true
             });
 
-            addEquationInput('y=\\sin(x)', equationColors[0]);
-            addEquationInput('y=x^2', equationColors[1]);
-            addEquationInput('y=\\frac{1}{x^3}', equationColors[2]);
+            // Create first container and add initial equations
+            const equationList = document.getElementById('equation-list');
+            const firstContainer = document.createElement('div');
+            firstContainer.className = 'equation-container';
+            equationList.appendChild(firstContainer);
 
-            document.getElementById('add-equation-btn').addEventListener('click', () => {
-                addEquationInput();
-            });
+            addEquationInput('y=\\sin(x)', equationColors[0], firstContainer);
+            addEquationInput('y=x^2', equationColors[1], firstContainer);
+            addEquationInput('y=\\frac{1}{x^3}', equationColors[2], firstContainer);
+
+            // The updateEquation for the third will automatically trigger addNewContainer for the extra one
 
             document.getElementById('reset-btn').addEventListener('click', () => {
                 graph.resetView();
