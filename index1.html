@@ -13,7 +13,7 @@
             display: flex;
             height: 100vh;
             overflow: hidden;
-            background-color: #f0f2f5;
+            background-color: #eaedf3;
             color: #333;
         }
         #app-container {
@@ -45,26 +45,33 @@
             border-bottom: 1px solid #e0e0e0;
             padding-bottom: 15px;
         }
-        #3d-btn {
+        .view-3d-btn {
             position: absolute;
             right: 15px;
             top: 50%;
             transform: translateY(-50%);
-            width: 30px;
-            height: 30px;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
-            background-color: #3498db;
+            background-color: #db5334;
             color: white;
             border: none;
-            font-size: 12px;
+            font-size: 20px;
             font-weight: bold;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
             transition: background-color 0.2s;
+            line-height: 1;
+            text-align: center;
+            padding: 0;
+            box-sizing: border-box;
+            white-space: nowrap;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
-        #3d-btn:hover {
+        .view-3d-btn:hover {
             background-color: #2980b9;
         }
         #equation-list {
@@ -267,12 +274,108 @@
             flex-basis: calc(33.33% - 10px);
             max-width: 150px;
         }
+
+        /* Mobile Responsiveness */
+        @media (max-width: 768px) {
+            #app-container {
+                flex-direction: column;
+            }
+            #sidebar {
+                width: 100%;
+                min-width: unset;
+                padding: 10px;
+                height: auto;
+                flex-shrink: 0;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            }
+            #sidebar h2 {
+                font-size: 1.5em;
+                margin-bottom: 15px;
+                padding-bottom: 10px;
+            }
+            #equation-list {
+                flex-grow: unset;
+                max-height: 40vh;
+                overflow-y: auto;
+                margin-bottom: 10px;
+            }
+            .equation-input-group {
+                padding: 12px 15px;
+                margin-bottom: 15px;
+                min-height: 50px;
+                align-items: stretch;
+            }
+            .equation-input-group .mq-editable-field {
+                flex-grow: 1;
+                font-size: 1.3em;
+                padding: 5px 10px;
+                min-height: 45px;
+            }
+            .equation-input-group .color-picker {
+                width: 40px;
+                height: 40px;
+                margin-right: 15px;
+            }
+            .equation-input-group .remove-btn {
+                font-size: 2em;
+                margin-left: 15px;
+                padding: 0 10px;
+                min-width: 50px;
+            }
+            .sidebar-btn {
+                padding: 15px 20px;
+                font-size: 1.2em;
+                margin-top: 15px;
+                min-height: 50px;
+            }
+            .view-3d-btn {
+                width: 50px;
+                height: 50px;
+                font-size: 24px;
+                right: 10px;
+            }
+            #graph-area {
+                flex-grow: 1;
+                height: auto;
+                min-height: 50vh;
+            }
+            #virtual-keyboard-container {
+                padding: 10px;
+                gap: 8px;
+                max-height: 35vh;
+            }
+            .keyboard-btn {
+                padding: 15px 20px;
+                font-size: 1.2em;
+                min-width: 60px;
+                min-height: 50px;
+            }
+            .keyboard-btn.wide {
+                flex-basis: calc(50% - 8px);
+                max-width: none;
+            }
+            body {
+                font-size: 16px; /* Ensure base font size for mobile */
+            }
+        }
+
+        @media (max-width: 480px) {
+            .keyboard-btn {
+                padding: 12px 15px;
+                font-size: 1.1em;
+                min-width: 55px;
+                min-height: 45px;
+            }
+            .keyboard-btn.wide {
+                flex-basis: 100%;
+            }
+        }
     </style>
 </head>
 <body>
     <div id="app-container">
         <div id="sidebar">
-            <h2>Coordinatix 2D<button id="3d-btn">3D</button></h2>
+            <h2>Coordinatix 2D<button id="view-3d-btn" class="view-3d-btn">3D</button></h2>
             <div id="equation-list"></div>
             <button id="add-equation-btn" class="sidebar-btn">+ Add Equation</button>
             <button id="keyboard-toggle-btn" class="sidebar-btn"> Keyboard</button>
@@ -301,8 +404,8 @@
 
                 this.style = {
                     bg: options.bg || '#ffffff',
-                    gridMajor: options.gridMajor || '#e6e6e6',
-                    gridMinor: options.gridMinor || '#f5f5f5',
+                    gridMajor: options.gridMajor || '#999999',
+                    gridMinor: options.gridMinor || '#e5e5e5',
                     axis: options.axis || '#333333',
                     axisArrow: options.axisArrow || '#333333',
                     tick: options.tick || '#666666',
@@ -652,8 +755,8 @@
                 const ctx = this.ctx;
                 const xStep = this.niceStep(80, this.scaleX);
                 const yStep = this.niceStep(80, this.scaleY);
-                const xMinor = xStep / 2;
-                const yMinor = yStep / 2;
+                const xMinor = xStep / 5;
+                const yMinor = yStep / 5;
                 const xMin = this.screenToWorld(0, 0).x;
                 const xMax = this.screenToWorld(w, 0).x;
                 const yMin = this.screenToWorld(0, h).y;
@@ -666,20 +769,24 @@
                 for (let x = xStartMinor; x <= xMax; x += xMinor) {
                     if (Math.abs(x) < 1e-9) continue;
                     const { sx } = this.worldToScreen(x, 0);
-                    ctx.beginPath();
-                    ctx.moveTo(sx, 0);
-                    ctx.lineTo(sx, h);
-                    ctx.stroke();
+                    if (sx >= 0 && sx <= w) {
+                        ctx.beginPath();
+                        ctx.moveTo(sx, 0);
+                        ctx.lineTo(sx, h);
+                        ctx.stroke();
+                    }
                 }
 
                 let yStartMinor = Math.floor(yMin / yMinor) * yMinor;
                 for (let y = yStartMinor; y <= yMax; y += yMinor) {
                     if (Math.abs(y) < 1e-9) continue;
                     const { sy } = this.worldToScreen(0, y);
-                    ctx.beginPath();
-                    ctx.moveTo(0, sy);
-                    ctx.lineTo(w, sy);
-                    ctx.stroke();
+                    if (sy >= 0 && sy <= h) {
+                        ctx.beginPath();
+                        ctx.moveTo(0, sy);
+                        ctx.lineTo(w, sy);
+                        ctx.stroke();
+                    }
                 }
 
                 ctx.strokeStyle = this.style.gridMajor;
@@ -687,38 +794,42 @@
                 for (let x = xStart; x <= xMax; x += xStep) {
                     if (Math.abs(x) < 1e-9) continue;
                     const { sx } = this.worldToScreen(x, 0);
-                    ctx.beginPath();
-                    ctx.moveTo(sx, 0);
-                    ctx.lineTo(sx, h);
-                    ctx.stroke();
+                    if (sx >= 0 && sx <= w) {
+                        ctx.beginPath();
+                        ctx.moveTo(sx, 0);
+                        ctx.lineTo(sx, h);
+                        ctx.stroke();
 
-                    const label = this.formatTick(x);
-                    ctx.fillStyle = this.style.text;
-                    ctx.font = '12px sans-serif';
-                    ctx.textAlign = 'center';
-                    const axisY = this.worldToScreen(0, 0).sy;
-                    const labelY = axisY < h - 18 ? (axisY > 5 ? axisY + 10 : 5) : h - 18;
-                    ctx.textBaseline = 'top';
-                    ctx.fillText(label, sx, labelY);
+                        const label = this.formatTick(x);
+                        ctx.fillStyle = this.style.text;
+                        ctx.font = '12px sans-serif';
+                        ctx.textAlign = 'center';
+                        const axisY = this.worldToScreen(0, 0).sy;
+                        const labelY = axisY < h - 18 ? (axisY > 5 ? axisY + 10 : 5) : h - 18;
+                        ctx.textBaseline = 'top';
+                        ctx.fillText(label, sx, labelY);
+                    }
                 }
 
                 let yStart = Math.floor(yMin / yStep) * yStep;
                 for (let y = yStart; y <= yMax; y += yStep) {
                     if (Math.abs(y) < 1e-9) continue;
                     const { sy } = this.worldToScreen(0, y);
-                    ctx.beginPath();
-                    ctx.moveTo(0, sy);
-                    ctx.lineTo(w, sy);
-                    ctx.stroke();
+                    if (sy >= 0 && sy <= h) {
+                        ctx.beginPath();
+                        ctx.moveTo(0, sy);
+                        ctx.lineTo(w, sy);
+                        ctx.stroke();
 
-                    const label = this.formatTick(y);
-                    ctx.fillStyle = this.style.text;
-                    ctx.font = '12px sans-serif';
-                    const axisX = this.worldToScreen(0, 0).sx;
-                    const labelX = axisX > 40 ? (axisX < w - 5 ? axisX - 10 : w - 5) : 40;
-                    ctx.textAlign = 'right';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText(label, labelX, sy);
+                        const label = this.formatTick(y);
+                        ctx.fillStyle = this.style.text;
+                        ctx.font = '12px sans-serif';
+                        const axisX = this.worldToScreen(0, 0).sx;
+                        const labelX = axisX > 40 ? (axisX < w - 5 ? axisX - 10 : w - 5) : 40;
+                        ctx.textAlign = 'right';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(label, labelX, sy);
+                    }
                 }
             }
 
@@ -1137,8 +1248,8 @@
         });
 
         // 3D Button
-        document.getElementById('3d-btn').addEventListener('click', () => {
-            window.location.href = 'abc.html';
+        document.getElementById('view-3d-btn').addEventListener('click', () => {
+            window.location.href = '3d.html';
         });
 
         // Initialization
@@ -1150,6 +1261,8 @@
             }
 
             graph = new Graph2D(canvas, {
+                gridMajor: '#999999',
+                gridMinor: '#e5e5e5',
                 scaleX: 60, scaleY: 60, enableInertia: true
             });
 
