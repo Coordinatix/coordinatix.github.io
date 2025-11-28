@@ -267,8 +267,6 @@
             .replace(/\\tan/g, 'tan')
             .replace(/\\cdot/g, '*')
             .replace(/\\frac{([^}]*)}{([^}]*)}/g, '($1)/($2)')
-            .replace(/\\left/g, '(')
-            .replace(/\\right/g, ')')
             .replace(/\^{([^}]*)}/g, '^($1)');
           updateEquation(index, plainMath);
         }, typingDelay);
@@ -413,7 +411,7 @@ if (equationText) {
 
     // Initialize with one equation
     init();
-    addEquation('\\sin(x) + \\cos(y)');
+    addEquation('sin(x) + cos(y)');
     addEquation('');
   </script>
 </body>
