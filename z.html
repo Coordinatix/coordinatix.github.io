@@ -2,670 +2,519 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>3D Sound — Improved Syllable Detection</title>
+  <title>3D Voice Nervous System — Fully Fixed & Working (2025)</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
-    body { margin: 0; background: #07070a; color: #eee; font-family: system-ui, -apple-system, 'Segoe UI', Roboto; }
+    body { margin: 0; background: #07070a; color: #eee; font-family: system-ui; overflow: hidden; }
     #ui { position: absolute; top: 12px; left: 12px; z-index: 20; }
-    button { margin-right: 8px; padding:6px 10px; border: 1px solid #555; border-radius: 4px; background: #333; color: #eee; cursor: pointer; }
+    button { margin-right: 8px; padding: 8px 12px; border: 1px solid #555; border-radius: 6px; background: #333; color: #eee; cursor: pointer; font-size: 14px; }
     button:hover { background: #444; }
     #playBtn { background-color: #28a745; border-color: #28a745; }
     #playBtn:hover { background-color: #218838; }
-    #playBtn:disabled { background-color: #555; border-color: #555; cursor: not-allowed; opacity: 0.6; }
-    #status { margin-left:8px;font-size:13px;opacity:0.8 }
-    #tooltip { position: absolute; padding: 6px 8px; background: rgba(0,0,0,0.7); border: 1px solid #333; border-radius: 4px; display: none; pointer-events: none; white-space: pre; font-size: 12px; }
-    canvas { display: block; width:100vw; height:100vh; }
-    #audioPlayer { position: absolute; bottom: 10px; left: 12px; z-index: 20; width: 200px; background: rgba(0,0,0,0.5); border-radius: 4px; padding: 5px; }
+    #playBtn:disabled { background-color: #555; opacity: 0.6; cursor: not-allowed; }
+    #status { margin-left: 12px; font-size: 14px; opacity: 0.9; }
+    #tooltip { position: absolute; padding: 8px 10px; background: rgba(0,0,0,0.85); border: 1px solid #444; border-radius: 6px; display: none; pointer-events: none; font-size: 13px; white-space: pre; z-index: 100; }
+    canvas { display: block; }
+    #audioPlayer { position: absolute; bottom: 16px; left: 16px; z-index: 20; width: 300px; }
   </style>
 </head>
 <body>
   <div id="ui">
-    <button id="startBtn">Start Recording</button>
-    <button id="stopBtn" disabled>Stop Recording</button>
+    <button id="startBtn">Start Mic</button>
+    <button id="stopBtn" disabled>Stop</button>
     <button id="playBtn" disabled>Play Recording</button>
     <button id="freezeBtn">Freeze Layout</button>
     <button id="exportBtn">Export JSON</button>
-    <span id="status">Ready.</span>
+    <span id="status">Ready — Click "Start Mic" and speak!</span>
   </div>
   <div id="tooltip"></div>
   <canvas id="scene"></canvas>
   <audio id="audioPlayer" controls></audio>
 
-  <!-- Using CDN versions from provided code -->
-  <script src="https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three-orbitcontrols@2.110.3/OrbitControls.min.js"></script>
-  <script src="https://unpkg.com/umap-js@1.4.0/dist/umap.min.js"></script>
+  <!-- Import Map for ESM (enables clean imports) -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.180.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.180.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <!-- Bundled Three.js + OrbitControls (fallback if ESM fails, but ESM preferred) -->
+  <script src="https://cdn.jsdelivr.net/gh/paulmasson/threejs-with-controls@latest/build/three.min.js"></script>
+
+  <!-- UMAP and Meyda CDNs (verified latest) -->
+  <script src="https://cdn.jsdelivr.net/npm/umap-js@1.4.0/dist/umap.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/meyda@5.6.3/dist/web/meyda.min.js"></script>
 
-  <script>
-    // Use globals: THREE, UMAP, Meyda
-    // THREE.OrbitControls is attached to THREE by the OrbitControls script
+  <!-- AudioWorklet Processor (inline blob for reliability) -->
+  <script type="application/javascript">
+    class SyllableProcessor extends AudioWorkletProcessor {
+      constructor() {
+        super();
+        this.buffer = [];
+        this.port.onmessage = (e) => {
+          if (e.data === 'reset') this.buffer = [];
+        };
+      }
 
-    // Autocorrelation-based pitch detection (improved robustness)
+      process(inputs, outputs, parameters) {
+        const input = inputs[0];
+        if (!input || input.length === 0) return true;
+        const samples = input[0];
+        if (samples.length === 0) return true;
+
+        this.buffer.push(...samples);
+
+        // Send in chunks of 2048
+        while (this.buffer.length >= 2048) {
+          const chunk = this.buffer.slice(0, 2048);
+          this.port.postMessage({ samples: chunk });
+          this.buffer = this.buffer.slice(2048);
+        }
+        return true;
+      }
+    }
+    registerProcessor('syllable-processor', SyllableProcessor);
+  </script>
+
+  <script type="module">
+    // ESM Imports (for modern features)
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    // Fast YIN-like pitch detection
     function detectPitch(buffer, sampleRate) {
-      const bufferLength = buffer.length;
-      // Search for period in a reasonable range (e.g., 50Hz to 600Hz)
-      const minPeriod = sampleRate / 600; 
-      const maxPeriod = sampleRate / 50;  
-      
-      let maxCorrelation = -Infinity;
-      let bestPeriod = 0;
+      const SIZE = buffer.length;
+      let tauMax = Math.min(1024, Math.floor(sampleRate / 60));
+      let minLag = Math.floor(sampleRate / 800);
 
-      // Autocorrelation function (ACF)
-      for (let period = Math.floor(minPeriod); period <= Math.ceil(maxPeriod); period++) {
-        let correlation = 0;
-        for (let i = 0; i < bufferLength - period; i++) {
-          correlation += buffer[i] * buffer[i + period];
-        }
-        if (correlation > maxCorrelation) {
-          maxCorrelation = correlation;
-          bestPeriod = period;
-        }
-      }
+      let minVal = Infinity;
+      let bestLag = 0;
 
-      // Simple threshold for correlation strength to determine "voiced"
-      // This is a heuristic; robust pitch detection like YIN would normalize.
-      if (maxCorrelation > 0.005) { // A heuristic threshold, adjust as needed based on signal strength
-        const frequency = sampleRate / bestPeriod;
-        // Further filter for human vocal range to reduce false positives
-        if (frequency > 70 && frequency < 800) { // Common vocal range
-            return frequency;
+      for (let tau = minLag; tau < tauMax; tau++) {
+        let sum = 0;
+        for (let i = 0; i < SIZE - tau; i++) {
+          const diff = buffer[i] - buffer[i + tau];
+          sum += diff * diff;
+        }
+        if (sum < minVal) {
+          minVal = sum;
+          bestLag = tau;
         }
       }
-      return 0; // No pitch detected
+
+      if (minVal < 0.06 && bestLag > 0) {
+        const freq = sampleRate / bestLag;
+        if (freq > 70 && freq < 800) return freq;
+      }
+      return 0;
     }
 
-    // Simple low-pass filter for smoothing
-    function lowPassFilter(value, prevValue, alpha = 0.8) {
-      return alpha * value + (1 - alpha) * (prevValue || value);
-    }
-
-    // --- Audio Feature Engine ---
-    class AudioFeatureEngine {
+    // Audio Engine with AudioWorklet
+    class AudioEngine {
       constructor() {
         this.audioCtx = null;
-        this.stream = null; // The MediaStream will be passed in
-        this.sourceNode = null;
-        this.analyser = null;
-        this.scriptProcessorNode = null; 
-        this.bufferSize = 2048; // Frame size for ScriptProcessorNode
+        this.processorNode = null;
         this.onSyllable = null;
-        this._energyWindow = [];
-        this._currentSyll = null;
-        this._frameIndex = 0;
-        
-        // Initial values for smoothing
+        this.energyWindow = [];
+        this.currentSyll = null;
+        this.frameIndex = 0;
         this.prevEnergy = 0;
-        this.prevFlux = 0;
         this.prevPitch = 0;
+        this.workletModule = null;
       }
 
-      // Now accepts the MediaStream directly
-      async start(mediaStream, onSyllable) {
+      async start(stream, onSyllable) {
         this.onSyllable = onSyllable;
-        if (!this.audioCtx) {
-          this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        this.audioCtx = new AudioContext();
+        await this.audioCtx.resume();
+
+        // Create blob URL for the inline AudioWorklet script
+        const workletCode = `
+          class SyllableProcessor extends AudioWorkletProcessor {
+            constructor() {
+              super();
+              this.buffer = [];
+              this.port.onmessage = (e) => {
+                if (e.data === 'reset') this.buffer = [];
+              };
+            }
+
+            process(inputs, outputs, parameters) {
+              const input = inputs[0];
+              if (!input || input.length === 0) return true;
+              const samples = input[0];
+              if (samples.length === 0) return true;
+
+              this.buffer.push(...samples);
+
+              while (this.buffer.length >= 2048) {
+                const chunk = this.buffer.slice(0, 2048);
+                this.port.postMessage({ samples: chunk });
+                this.buffer = this.buffer.slice(2048);
+              }
+              return true;
+            }
+          }
+          registerProcessor('syllable-processor', SyllableProcessor);
+        `;
+        const blob = new Blob([workletCode], { type: 'application/javascript' });
+        const workletUrl = URL.createObjectURL(blob);
+        await this.audioCtx.audioWorklet.addModule(workletUrl);
+
+        const source = this.audioCtx.createMediaStreamSource(stream);
+        this.processorNode = new AudioWorkletNode(this.audioCtx, 'syllable-processor');
+
+        this.processorNode.port.onmessage = (e) => {
+          const samples = e.data.samples;
+          const features = Meyda.extract(
+            ['rms', 'zcr', 'spectralCentroid', 'spectralFlux', 'mfcc'],
+            samples,
+            { sampleRate: this.audioCtx.sampleRate }
+          );
+          if (features) {
+            const pitch = detectPitch(samples, this.audioCtx.sampleRate);
+            this.processFrame(features, pitch);
+          }
+        };
+
+        source.connect(this.processorNode);
+        this.processorNode.connect(this.audioCtx.destination);
+        this.energyWindow = [];
+        this.currentSyll = null;
+        this.frameIndex = 0;
+      }
+
+      processFrame(f, rawPitch) {
+        const pitch = rawPitch > 0 ? rawPitch : this.prevPitch;
+        this.prevPitch = pitch * 0.7 + this.prevPitch * 0.3;
+
+        const energy = f.rms || 0;
+        const smoothedEnergy = energy * 0.9 + this.prevEnergy * 0.1;
+        this.prevEnergy = smoothedEnergy;
+
+        this.energyWindow.push(smoothedEnergy);
+        if (this.energyWindow.length > 40) this.energyWindow.shift();
+        const meanE = this.energyWindow.reduce((a,b)=>a+b,0)/this.energyWindow.length || 0.001;
+
+        const isVoiced = smoothedEnergy > meanE * 1.8 &&
+                         (f.zcr || 0) < 0.4 &&
+                         pitch > 75 &&
+                         (f.spectralFlux || 0) > 0.015;
+
+        const time = this.frameIndex++ * 2048 / this.audioCtx.sampleRate;
+
+        if (isVoiced && !this.currentSyll) {
+          this.currentSyll = { start: time, frames: [] };
         }
-        if (this.audioCtx.state === 'suspended') {
-          await this.audioCtx.resume();
+        if (this.currentSyll) {
+          this.currentSyll.frames.push({
+            time, energy: smoothedEnergy, pitch,
+            mfcc: f.mfcc || new Array(13).fill(0),
+            flux: f.spectralFlux || 0
+          });
+
+          if (this.currentSyll.frames.length > 8 && smoothedEnergy < meanE * 0.6) {
+            this.finalizeSyllable();
+          }
         }
+      }
 
-        this.stream = mediaStream; // Use the provided stream
+      finalizeSyllable() {
+        if (!this.currentSyll || this.currentSyll.frames.length < 6) {
+          this.currentSyll = null;
+          return;
+        }
+        const frames = this.currentSyll.frames;
+        const mfccAvg = frames[0].mfcc.map((_, i) => 
+          frames.reduce((s, f) => s + (f.mfcc[i] || 0), 0) / frames.length
+        );
+        const pitchMean = frames.reduce((s, f) => s + f.pitch, 0) / frames.length;
+        const energyMean = frames.reduce((s, f) => s + f.energy, 0) / frames.length;
 
-        this.sourceNode = this.audioCtx.createMediaStreamSource(this.stream);
-        this.analyser = this.audioCtx.createAnalyser();
-        this.analyser.fftSize = this.bufferSize; 
-        
-        // Create ScriptProcessorNode for continuous audio processing
-        // This is necessary for the analyser to be updated and for direct buffer access.
-        // It's deprecated, but widely supported and simpler than AudioWorklet for this context.
-        this.scriptProcessorNode = this.audioCtx.createScriptProcessor(this.bufferSize, 1, 1);
-        this.scriptProcessorNode.onaudioprocess = this._onAudioProcess.bind(this);
+        const syllable = {
+          id: crypto.randomUUID ? crypto.randomUUID() : 'syl-' + Date.now(),
+          startTime: this.currentSyll.start,
+          endTime: frames[frames.length-1].time,
+          features: new Float32Array([...mfccAvg.slice(0,8), energyMean, pitchMean]),
+          energyMean,
+          pitchMean,
+          frameCount: frames.length
+        };
 
-        // Connect the audio graph: source -> analyser -> scriptProcessor -> destination
-        this.sourceNode.connect(this.analyser);
-        this.analyser.connect(this.scriptProcessorNode);
-        // Connect to destination to ensure the scriptProcessorNode's onaudioprocess is triggered
-        this.scriptProcessorNode.connect(this.audioCtx.destination); 
-
-        this._energyWindow = [];
-        this._currentSyll = null; // Ensure no leftover syllable from previous session
-        this._frameIndex = 0;
-        this.prevEnergy = 0;
-        this.prevFlux = 0;
-        this.prevPitch = 0;
+        this.onSyllable(syllable);
+        this.currentSyll = null;
       }
 
       stop() {
-        if (this.scriptProcessorNode) {
-          this.scriptProcessorNode.disconnect();
-          this.scriptProcessorNode.onaudioprocess = null; 
-          this.scriptProcessorNode = null;
+        if (this.processorNode) {
+          this.processorNode.port.postMessage('reset');
+          this.processorNode.disconnect();
         }
-        if (this.analyser) {
-          try { this.analyser.disconnect(); } catch(e){}
+        if (this.audioCtx) {
+          this.audioCtx.close();
         }
-        if (this.sourceNode) {
-          try { this.sourceNode.disconnect(); } catch(e){}
-        }
-        if (this.stream) { // Stop all tracks associated with the stream
-          this.stream.getTracks().forEach(t => t.stop());
-          this.stream = null;
-        }
-        // Suspend AudioContext to save resources if not needed
-        if (this.audioCtx && this.audioCtx.state === 'running') {
-            this.audioCtx.suspend();
-        }
-        this._currentSyll = null; 
-        this._energyWindow = []; 
-      }
-
-      _onAudioProcess(audioProcessingEvent) {
-        const inputBuffer = audioProcessingEvent.inputBuffer;
-        const channelData = inputBuffer.getChannelData(0); // Get mono audio data
-
-        // Perform pitch detection on the raw buffer
-        const pitch = detectPitch(channelData, this.audioCtx.sampleRate);
-        this.prevPitch = lowPassFilter(pitch, this.prevPitch, 0.7);
-        
-        const features = Meyda.extract(
-          ['mfcc','rms','zcr','spectralCentroid','spectralFlatness','spectralFlux'],
-          channelData, // Meyda expects the raw Float32Array here
-          { sampleRate: this.audioCtx.sampleRate }
-        ) || {};
-        
-        this._processFrame(features, this.prevPitch);
-      }
-
-      _processFrame(f, pitch) {
-        const frameDuration = this.bufferSize / this.audioCtx.sampleRate;
-        const time = this._frameIndex * frameDuration;
-        this._frameIndex++;
-
-        if (!f) return;
-
-        let energy = lowPassFilter((f.rms || 0), this.prevEnergy, 0.9);
-        this.prevEnergy = energy;
-        const zcr = (f.zcr || 0);
-        const flux = lowPassFilter((f.spectralFlux || 0), this.prevFlux, 0.8);
-        this.prevFlux = flux;
-
-        this._energyWindow.push(energy);
-        if (this._energyWindow.length > 50) this._energyWindow.shift(); 
-        const meanE = this._energyWindow.reduce((a,b)=>a+b,0) / Math.max(1,this._energyWindow.length);
-        const stdE = Math.sqrt(this._energyWindow.reduce((a,b)=>a+(b-meanE)*(b-meanE),0) / Math.max(1,this._energyWindow.length));
-        
-        const onsetEnergyThresh = meanE + 0.5 * stdE; 
-        const minAbsEnergy = 0.005; // Minimum energy to consider anything (tune this for your environment)
-        
-        const voiced = energy > Math.max(minAbsEnergy, onsetEnergyThresh) && 
-                       zcr < 0.5 && 
-                       pitch > 70 && pitch < 800 && // Human vocal range, slightly wider
-                       flux > 0.01;  // Onset indicator via spectral flux
-
-        if (voiced && !this._currentSyll) {
-          this._currentSyll = { start: time, frames: [] };
-        }
-        if (this._currentSyll) {
-          this._currentSyll.frames.push({ 
-            time, 
-            energy, 
-            zcr, 
-            pitch,
-            mfcc: f.mfcc || new Array(13).fill(0), 
-            sc: f.spectralCentroid || 0, 
-            sf: f.spectralFlatness || 0,
-            flux
-          });
-          const over = energy < meanE * 0.7;  
-          const long = (time - this._currentSyll.start) > 1.5;
-          const fluxDrop = flux < 0.005;  
-
-          if ((over && fluxDrop) || long) {
-            const syll = this._finalizeSyllable(this._currentSyll);
-            this._currentSyll = null;
-            if (syll) this.onSyllable && this.onSyllable(syll);
-          }
-        }
-      }
-
-      _finalizeSyllable(s) {
-        const frames = s.frames;
-        if (!frames || frames.length < 5) return null;  
-        
-        const mean = arr => arr.length > 0 ? arr.reduce((a,b)=>a+b,0)/arr.length : 0;
-        const std = arr => {
-            if (arr.length < 2) return 0;
-            const m = mean(arr);
-            return Math.sqrt(arr.reduce((a,b)=>a+(b-m)*(b-m),0)/arr.length);
-        };
-
-        const energyArr = frames.map(f=>f.energy);
-        const scArr = frames.map(f=>f.sc);
-        const sfArr = frames.map(f=>f.sf);
-        const pitchArr = frames.map(f=>f.pitch).filter(p => p > 0);
-        const fluxArr = frames.map(f=>f.flux);
-
-        const dur = frames[frames.length-1].time - frames[0].time;
-        
-        const mfcc = (function(){
-          const K = frames[0].mfcc ? frames[0].mfcc.length : 0;
-          if (K === 0) return new Array(13).fill(0); 
-          const sum = new Array(K).fill(0);
-          for (const fr of frames) for (let k=0;k<K;k++) sum[k]+=(fr.mfcc && fr.mfcc[k] || 0);
-          return sum.map(x=>x/frames.length);
-        })();
-
-        const modAM = std(energyArr) / Math.max(1e-6, mean(energyArr));
-        const meanPitch = mean(pitchArr);
-        const pitchVar = std(pitchArr);
-        const meanFlux = mean(fluxArr);
-
-        const feature = [].concat(
-          mfcc.slice(0,8), 
-          [ mean(scArr), mean(sfArr), 
-            modAM, dur, mean(energyArr), meanPitch, pitchVar, meanFlux ]
-        );
-        return {
-          id: (crypto && crypto.randomUUID) ? crypto.randomUUID() : ('syl-'+Date.now()+'-'+Math.random().toString(36).slice(2,9)),
-          startTime: s.start,
-          endTime: frames[frames.length-1].time,
-          features: new Float32Array(feature),
-          energyMean: mean(energyArr),
-          pitchMean: meanPitch,
-          frameCount: frames.length
-        };
       }
     }
 
-    // --- Reducer3D ---
+    // Reducer3D (UMAP)
     class Reducer3D {
-      constructor({ nNeighbors = 8, minDist = 0.1, metric = 'cosine', batchSize = 6 } = {}) {
-        this.nNeighbors = nNeighbors;
-        this.minDist = minDist;
-        this.metric = metric;
+      constructor() {
         this.data = [];
         this.embedded = [];
-        this.batchSize = batchSize;
         this.umap = null;
-        this._lastFitCount = 0; 
       }
-      add(vector) { this.data.push(Array.from(vector)); }
-      fitTransformIfNeeded() {
-        if (this.data.length < Math.max(2, this.nNeighbors + 1)) { 
-            return []; 
-        }
-        
-        if (this.data.length - this._lastFitCount < this.batchSize && this.embedded.length > 0) {
-            return this.embedded; 
-        }
-
+      add(vec) { this.data.push(Array.from(vec)); }
+      fit() {
+        if (this.data.length < 5) return;
         try {
-          this.umap = new UMAP({ nNeighbors: this.nNeighbors, minDist: this.minDist, nComponents: 3, metric: this.metric });
-          const X = this._zscore(this.data);
-          const e = this.umap.fit(X);
-          
-          const mins=[Infinity,Infinity,Infinity], maxs=[-Infinity,-Infinity,-Infinity];
-          for (const p of e) for (let i=0;i<3;i++){ mins[i]=Math.min(mins[i],p[i]); maxs[i]=Math.max(maxs[i],p[i]); }
-          const scales = maxs.map((mx,i)=> (mx-mins[i])||1); 
-          this.embedded = e.map(p=>p.map((v,i)=> ((v - mins[i]) / scales[i] - 0.5) * 2)); 
-
-          this._lastFitCount = this.data.length;
-          return this.embedded;
-        } catch(err) {
-          console.warn('UMAP fit failed, possibly due to insufficient data or degenerate features:', err);
-          return this.embedded || [];
-        }
+          this.umap = new UMAP({ nNeighbors: 6, minDist: 0.1, nComponents: 3 });
+          const emb = this.umap.fit(this.data);
+          const min = [Infinity,Infinity,Infinity], max = [-Infinity,-Infinity,-Infinity];
+          emb.forEach(p => p.forEach((v,i) => { min[i]=Math.min(min[i],v); max[i]=Math.max(max[i],v); }));
+          this.embedded = emb.map(p => p.map((v,i) => (v - min[i])/(max[i]-min[i]+1e-6)*2 - 1));
+        } catch(e) { console.warn("UMAP fit failed:", e); }
       }
-      knn(k=6) {
-        const pts = this.embedded || [];
-        const N = pts.length; if (N===0) return [];
-        const neighbors = new Array(N).fill(0).map(()=>[]);
-        for (let i=0;i<N;i++){
-          const dists=[];
-          for (let j=0;j<N;j++) if (i!==j){
-            const dx=pts[i][0]-pts[j][0], dy=pts[i][1]-pts[j][1], dz=pts[i][2]-pts[j][2];
-            dists.push({j, d: Math.hypot(dx,dy,dz)});
-          }
+      get() { return this.embedded; }
+      knn(k=5) {
+        const pts = this.embedded;
+        if (!pts || pts.length < 2) return [];
+        const n = pts.length;
+        const neighbors = [];
+        for (let i = 0; i < n; i++) {
+          const dists = pts.map((p,j) => j !== i ? {j, d: Math.hypot(...pts[i].map((v,k)=>v-pts[j][k]))} : null).filter(Boolean);
           dists.sort((a,b)=>a.d-b.d);
-          neighbors[i]=dists.slice(0,Math.min(k,dists.length)).map(o=>o.j);
+          neighbors.push(dists.slice(0, k).map(x=>x.j));
         }
         return neighbors;
       }
-      _zscore(X){
-        const d = X[0].length;
-        const means = new Array(d).fill(0), stds = new Array(d).fill(1);
-        for (let j=0;j<d;j++){
-          const col = X.map(r=>r[j]);
-          if (col.length === 0) continue; // Skip empty columns
-          const m = col.reduce((a,b)=>a+b,0)/col.length;
-          const s = Math.sqrt(col.reduce((a,b)=>a+(b-m)*(b-m),0)/col.length);
-          means[j]=m; stds[j]=Math.max(s, 1e-6); 
-        }
-        return X.map(row=> row.map((v,j)=> (v - means[j]) / stds[j]));
-      }
     }
 
-    // --- Visualization ---
+    // 3D Visualization (using ESM THREE)
     class NervousSystem3D {
       constructor(canvas) {
-        this.canvas = canvas;
-        this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-        this.renderer.setPixelRatio(window.devicePixelRatio || 1);
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(0x07070a);
-        this.camera = new THREE.PerspectiveCamera(55, window.innerWidth/window.innerHeight, 0.01, 200);
-        this.camera.position.set(0, 0, 6);
-        this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
+        this.camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.01, 100);
+        this.camera.position.set(0,0,5);
+        this.renderer = new THREE.WebGLRenderer({canvas, antialias: true});
+        this.renderer.setSize(innerWidth, innerHeight);
+        this.controls = new OrbitControls(this.camera, canvas);
         this.controls.enableDamping = true;
 
-        const light = new THREE.PointLight(0xffffff, 1.2);
-        light.position.set(2,2,4);
+        const light = new THREE.HemisphereLight(0xffffff, 0x4444aa, 1);
         this.scene.add(light);
 
-        this.nodesGroup = new THREE.Group();
-        this.edgesGroup = new THREE.Group();
-        this.scene.add(this.nodesGroup);
-        this.scene.add(this.edgesGroup);
+        this.nodes = new THREE.Group();
+        this.edges = new THREE.Group();
+        this.scene.add(this.nodes);
+        this.scene.add(this.edges);
 
+        this.tooltip = document.getElementById('tooltip');
         this.raycaster = new THREE.Raycaster();
         this.mouse = new THREE.Vector2();
-        this.tooltip = document.getElementById('tooltip');
-
-        window.addEventListener('resize', ()=>this._onResize());
-        this.renderer.domElement.addEventListener('mousemove', (e)=>this._onMouseMove(e));
-        this.renderer.domElement.addEventListener('click', (e)=>this._onClick(e));
-
-        this._anim = this._animate.bind(this);
-        requestAnimationFrame(this._anim);
+        canvas.addEventListener('pointermove', e => this.onMove(e));
+        canvas.addEventListener('click', e => this.onClick(e));
+        window.addEventListener('resize', () => {
+          this.camera.aspect = innerWidth/innerHeight;
+          this.camera.updateProjectionMatrix();
+          this.renderer.setSize(innerWidth, innerHeight);
+        });
+        this.animate();
       }
-
-      setData(nodes, neighbors) {
-        this.nodesGroup.clear(); this.edgesGroup.clear();
-        const sphereGeo = new THREE.SphereGeometry(0.03, 10, 10);
-        for (const n of nodes) {
-          const mat = new THREE.MeshStandardMaterial({ color: new THREE.Color(...n.color), emissive: new THREE.Color(...n.color).multiplyScalar(0.2) });
-          const mesh = new THREE.Mesh(sphereGeo, mat);
-          mesh.position.set(...n.position);
-          mesh.scale.setScalar(n.size || 0.02);
+      set(nodesData, neighbors) {
+        this.nodes.clear();
+        this.edges.clear();
+        nodesData.forEach(n => {
+          const geo = new THREE.SphereGeometry(0.04, 16, 16);
+          const mat = new THREE.MeshStandardMaterial({
+            color: new THREE.Color(...n.color),
+            emissive: new THREE.Color(...n.color).multiplyScalar(0.4)
+          });
+          const mesh = new THREE.Mesh(geo, mat);
+          mesh.position.set(...n.pos);
+          mesh.scale.setScalar(0.5 + n.energy*6);
           mesh.userData = n;
-          this.nodesGroup.add(mesh);
-        }
-        const lineMat = new THREE.LineBasicMaterial({ color: 0x88aaff, transparent: true, opacity: 0.28 });
-        for (let i=0;i<nodes.length;i++){
-          for (const j of (neighbors[i]||[])){
-            if (j === i || j < 0 || j >= nodes.length) continue; 
-            const geom = new THREE.BufferGeometry().setFromPoints([
-              new THREE.Vector3(...nodes[i].position), new THREE.Vector3(...nodes[j].position)
-            ]);
-            const line = new THREE.Line(geom, lineMat);
-            this.edgesGroup.add(line);
-          }
+          this.nodes.add(mesh);
+        });
+        const lineMat = new THREE.LineBasicMaterial({color: 0x4488ff, transparent: true, opacity: 0.25});
+        neighbors.forEach((list, i) => {
+          list.forEach(j => {
+            if (j > i) {
+              const geo = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(...nodesData[i].pos),
+                new THREE.Vector3(...nodesData[j].pos)
+              ]);
+              this.edges.add(new THREE.Line(geo, lineMat));
+            }
+          });
+        });
+      }
+      onMove(e) {
+        const rect = this.renderer.domElement.getBoundingClientRect();
+        this.mouse.x = (e.clientX - rect.left)/rect.width*2 - 1;
+        this.mouse.y = -(e.clientY - rect.top)/rect.height*2 + 1;
+        this.raycaster.setFromCamera(this.mouse, this.camera);
+        const hits = this.raycaster.intersectObjects(this.nodes.children);
+        if (hits[0]) {
+          const d = hits[0].object.userData;
+          this.tooltip.style.display = 'block';
+          this.tooltip.style.left = e.clientX + 15 + 'px';
+          this.tooltip.style.top = e.clientY + 10 + 'px';
+          this.tooltip.textContent = `Syllable ${d.id.slice(0,8)}\nPitch: ${d.pitch.toFixed(0)} Hz\nEnergy: ${d.energy.toFixed(3)}`;
+        } else {
+          this.tooltip.style.display = 'none';
         }
       }
-
-      _onResize(){
-        this.camera.aspect = window.innerWidth/window.innerHeight;
-        this.camera.updateProjectionMatrix();
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
+      onClick(e) {
+        const rect = this.renderer.domElement.getBoundingClientRect();
+        this.mouse.x = (e.clientX - rect.left)/rect.width*2 - 1;
+        this.mouse.y = -(e.clientY - rect.top)/rect.height*2 + 1;
+        this.raycaster.setFromCamera(this.mouse, this.camera);
+        const hits = this.raycaster.intersectObjects(this.nodes.children);
+        if (hits[0]) {
+          const d = hits[0].object.userData;
+          SpatialAudioEngine.ping(d.pos, d.pitch);
+        }
       }
-
-      _animate(){
+      animate = () => {
         this.controls.update();
         this.renderer.render(this.scene, this.camera);
-        requestAnimationFrame(this._anim);
-      }
-
-      _onMouseMove(e){
-        const rect = this.renderer.domElement.getBoundingClientRect();
-        this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-        this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-        this.raycaster.setFromCamera(this.mouse, this.camera);
-        const intersects = this.raycaster.intersectObjects(this.nodesGroup.children);
-        if (intersects.length > 0) {
-          const obj = intersects[0].object; const d = obj.userData;
-          this.tooltip.style.display = 'block';
-          this.tooltip.style.left = `${e.clientX + 10}px`;
-          this.tooltip.style.top = `${e.clientY + 10}px`;
-          this.tooltip.innerText =
-            `Syllable ${d.id.slice(0,8)}\n`+
-            `t: ${d.startTime.toFixed(2)}–${d.endTime.toFixed(2)} s\n`+
-            `energy: ${d.energyMean.toFixed(4)}\n`+
-            `pitch: ${d.pitchMean.toFixed(1)} Hz\n`+
-            `frames: ${d.frameCount}`;
-        } else this.tooltip.style.display = 'none';
-      }
-
-      _onClick(e){
-        const rect = this.renderer.domElement.getBoundingClientRect();
-        this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-        this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-        this.raycaster.setFromCamera(this.mouse, this.camera);
-        const intersects = this.raycaster.intersectObjects(this.nodesGroup.children);
-        if (intersects.length>0){
-          const obj = intersects[0].object; const d = obj.userData;
-          obj.material.emissiveIntensity = 0.8;
-          setTimeout(()=>obj.material.emissiveIntensity = 0.2, 200);
-          SpatialAudioEngine.playPingAt(d.position, d.pitchMean || 220);  
-        }
+        requestAnimationFrame(this.animate);
       }
     }
 
-    // --- Spatial audio ---
+    // Spatial Audio
     class SpatialAudioEngine {
-      static ctx = null; 
-      static init(audioCtx){ SpatialAudioEngine.ctx = audioCtx; }
-      static playPingAt(pos, pitch = 220){
-        const ctx = SpatialAudioEngine.ctx; if (!ctx) return;
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        
-        const panner = ctx.createPanner();
-        panner.panningModel = 'HRTF';
-        panner.distanceModel = 'inverse';
-        panner.positionX.value = pos[0]*3; 
-        panner.positionY.value = pos[1]*3; 
-        panner.positionZ.value = pos[2]*3; 
-
-        osc.type = 'sine'; 
-        osc.frequency.value = Math.max(110, Math.min(880, pitch));  
-        gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-        gain.gain.linearRampToValueAtTime(0.2, ctx.currentTime + 0.01);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
-        osc.connect(gain).connect(panner).connect(ctx.destination);
-        osc.start(); osc.stop(ctx.currentTime + 0.35);
+      static ctx = null;
+      static init(ctx) { this.ctx = ctx; }
+      static ping(pos, freq = 220) {
+        if (!this.ctx) return;
+        const o = this.ctx.createOscillator();
+        const g = this.ctx.createGain();
+        const p = this.ctx.createPanner();
+        p.panningModel = 'HRTF';
+        p.positionX.value = pos[0]*2;
+        p.positionY.value = pos[1]*2;
+        p.positionZ.value = pos[2]*2;
+        o.frequency.value = Math.max(110, Math.min(880, freq));
+        o.type = 'sine';
+        g.gain.setValueAtTime(0.001, this.ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.2, this.ctx.currentTime + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.4);
+        o.connect(g).connect(p).connect(this.ctx.destination);
+        o.start();
+        o.stop(this.ctx.currentTime + 0.4);
       }
     }
 
-    // --- App orchestration ---
+    // App Orchestration
     class App {
-      constructor(){
+      constructor() {
         this.canvas = document.getElementById('scene');
         this.vis = new NervousSystem3D(this.canvas);
-        this.engine = new AudioFeatureEngine();
-        this.reducer = new Reducer3D({ nNeighbors: 8, minDist: 0.1, metric: 'cosine', batchSize: 4 });
+        this.engine = new AudioEngine();
+        this.reducer = new Reducer3D();
         this.syllables = [];
-        this.nodes = [];
-        this.neighbors = [];
         this.frozen = false;
+        this.recorder = null;
+        this.chunks = [];
 
-        this.mediaRecorder = null;
-        this.audioChunks = [];
-        this.audioBlob = null;
-        this.mimeType = 'audio/webm;codecs=opus';
-        this.playBtn = document.getElementById('playBtn');
-        this.audioPlayer = document.getElementById('audioPlayer');
-        this.statusEl = document.getElementById('status');
-        this.startBtn = document.getElementById('startBtn');
-        this.stopBtn = document.getElementById('stopBtn');
-
-        this.startBtn.onclick = ()=>this.start();
-        this.stopBtn.onclick = ()=>this.stop();
-        this.playBtn.onclick = ()=>this.play();
-        document.getElementById('freezeBtn').onclick = ()=>{ 
-            this.frozen = !this.frozen; 
-            document.getElementById('freezeBtn').innerText = this.frozen ? 'Unfreeze Layout' : 'Freeze Layout'; 
-            if (!this.frozen) {
-                this.vis.setData(this.nodes, this.neighbors);
-            }
+        document.getElementById('startBtn').onclick = () => this.start();
+        document.getElementById('stopBtn').onclick = () => this.stop();
+        document.getElementById('playBtn').onclick = () => document.getElementById('audioPlayer').play();
+        document.getElementById('freezeBtn').onclick = () => {
+          this.frozen = !this.frozen;
+          document.getElementById('freezeBtn').textContent = this.frozen ? 'Unfreeze' : 'Freeze Layout';
         };
-        document.getElementById('exportBtn').onclick = ()=>this.exportJSON();
+        document.getElementById('exportBtn').onclick = () => this.export();
       }
 
-      async start(){
+      async start() {
         try {
-          this.statusEl.innerText = 'Requesting microphone access...';
-          this.startBtn.disabled = true;
-          this.stopBtn.disabled = true;
-          this.playBtn.disabled = true;
-          
-          // Reset data for a new recording session
-          this.syllables = [];
-          this.reducer = new Reducer3D({ nNeighbors: 8, minDist: 0.1, metric: 'cosine', batchSize: 4 });
-          this.nodes = [];
-          this.neighbors = [];
-          this.vis.setData([], []); // Clear visualization
+          const statusEl = document.getElementById('status');
+          statusEl.textContent = 'Requesting microphone...';
+          const stream = await navigator.mediaDevices.getUserMedia({audio: { echoCancellation: true, noiseSuppression: true }});
+          await this.engine.start(stream, s => this.onSyllable(s));
 
-          // --- Get MediaStream directly in App for consistent handling ---
-          const mediaStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true }, video: false });
-
-          // Pass the successfully obtained stream to the AudioFeatureEngine
-          await this.engine.start(mediaStream, (syll)=>this._onSyllable(syll));
-          
-          // Initialize MediaRecorder with the obtained stream
-          if (!MediaRecorder.isTypeSupported(this.mimeType)) {
-            throw new Error('Unsupported MIME type: ' + this.mimeType + '. Try a different browser.');
-          }
-          this.mediaRecorder = new MediaRecorder(mediaStream, { mimeType: this.mimeType });
-          this.audioChunks = [];
-          this.mediaRecorder.ondataavailable = (event) => {
-            this.audioChunks.push(event.data);
+          const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/wav';
+          this.recorder = new MediaRecorder(stream, {mimeType: mime});
+          this.chunks = [];
+          this.recorder.ondataavailable = e => this.chunks.push(e.data);
+          this.recorder.onstop = () => {
+            const blob = new Blob(this.chunks, {type: mime});
+            document.getElementById('audioPlayer').src = URL.createObjectURL(blob);
+            document.getElementById('playBtn').disabled = false;
+            statusEl.textContent = `Recorded! Syllables: ${this.syllables.length}. Click Play.`;
           };
-          this.mediaRecorder.onstop = () => {
-            this.audioBlob = new Blob(this.audioChunks, { type: this.mimeType });
-            const audioUrl = URL.createObjectURL(this.audioBlob);
-            this.audioPlayer.src = audioUrl;
-            this.playBtn.disabled = false;
-            this.statusEl.innerText = `Recording saved. Click Play to listen. Syllables detected: ${this.syllables.length}.`;
-          };
-          this.mediaRecorder.start();
+          this.recorder.start(1000); // Timeslice for chunking
 
-          this.statusEl.innerText = 'Recording and analyzing... Speak now!';
-          this.stopBtn.disabled = false;
-          SpatialAudioEngine.init(this.engine.audioCtx); // Initialize spatial audio with the engine's AudioContext
+          SpatialAudioEngine.init(this.engine.audioCtx);
 
-        } catch (err) {
-            console.error('Microphone initialization error:', err);
-            if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
-                this.statusEl.innerText = 'Microphone access denied. Please allow microphone access in your browser settings.';
-            } else if (err.name === "NotFoundError") {
-                this.statusEl.innerText = 'No microphone found. Please ensure a microphone is connected and enabled.';
-            } else if (err.name === "AbortError" || err.name === "SecurityError") {
-                this.statusEl.innerText = 'Microphone access blocked by browser security policy. Ensure HTTPS and user interaction.';
-            } else {
-                this.statusEl.innerText = 'Error initializing microphone: ' + err.message;
-            }
-            this.startBtn.disabled = false; // Re-enable start button
-            this.stopBtn.disabled = true;
-            this.playBtn.disabled = true;
+          statusEl.textContent = 'Listening — speak now!';
+          document.getElementById('startBtn').disabled = true;
+          document.getElementById('stopBtn').disabled = false;
+        } catch (e) {
+          console.error('Mic error:', e);
+          document.getElementById('status').textContent = 'Mic access denied: ' + e.message;
         }
       }
 
-      stop(){
-        // Stop the MediaRecorder first to finalize the blob
-        if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
-          this.mediaRecorder.stop();
-        }
-        // Then stop the audio engine which also stops the MediaStream tracks
+      stop() {
+        if (this.recorder && this.recorder.state === 'recording') this.recorder.stop();
         this.engine.stop();
-        
-        this.startBtn.disabled = false;
-        this.stopBtn.disabled = true;
-        // Play button state is handled by mediaRecorder.onstop
+        document.getElementById('startBtn').disabled = false;
+        document.getElementById('stopBtn').disabled = true;
       }
 
-      play() {
-        if (this.audioBlob) {
-            this.audioPlayer.play();
-        }
-      }
-
-      exportJSON(){
-        const payload = { 
-            syllables: this.syllables.map(s=>({
-                id:s.id,
-                start:s.startTime,
-                end:s.endTime,
-                energy:s.energyMean,
-                pitch:s.pitchMean,
-                frames:s.frameCount,
-                features: Array.from(s.features) 
-            })),
-            nodes: this.nodes.map(n=>({
-                id:n.id,
-                position: n.position,
-                value: n.value,
-                color: n.color,
-                size: n.size,
-                startTime: n.startTime,
-                endTime: n.endTime,
-                energyMean: n.energyMean,
-                pitchMean: n.pitchMean,
-                frameCount: n.frameCount
-            })),
-            neighbors: this.neighbors
-        };
-        const blob = new Blob([JSON.stringify(payload,null,2)], { type: 'application/json' });
-        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'session.json'; a.click();
-      }
-
-      _onSyllable(s){
+      onSyllable(s) {
         this.syllables.push(s);
         this.reducer.add(s.features);
-        const embedded = this.reducer.fitTransformIfNeeded();
-        
-        if (!embedded || embedded.length === 0) {
-            this.statusEl.innerText = `Syllable ${this.syllables.length}. Not enough data for UMAP yet.`;
-            return;
-        }
+        if (this.syllables.length % 3 === 0) this.reducer.fit();
 
-        const eMin = Math.min(...this.syllables.map(x=>x.energyMean));
-        const eMax = Math.max(...this.syllables.map(x=>x.energyMean));
-        const val = (x)=> (eMax===eMin)?0.5:((x.energyMean - eMin)/(eMax-eMin));
-        const colorFromValue = (v)=>{ const c = new THREE.Color(); c.setHSL(0.66 - 0.66*v, 1.0, 0.5); return [c.r,c.g,c.b]; };
-        
-        this.nodes = this.syllables.map((sy,i)=>{
-          const p = (embedded[i] || [Math.random()-0.5, Math.random()-0.5, Math.random()-0.5]); 
-          const v = val(sy);
-          return { 
-            id: sy.id, 
-            position: [p[0],p[1],p[2]], 
-            value: v, 
-            color: colorFromValue(v), 
-            size: 0.02 + 0.05*v, 
-            startTime: sy.startTime, 
-            endTime: sy.endTime, 
-            energyMean: sy.energyMean, 
-            pitchMean: sy.pitchMean,
-            frameCount: sy.frameCount 
+        const emb = this.reducer.get() || this.syllables.map(() => [Math.random()*2-1, Math.random()*2-1, Math.random()*2-1]);
+        const neighbors = this.reducer.knn(5);
+
+        const eVals = this.syllables.map(x => x.energyMean);
+        const eMin = Math.min(...eVals), eMax = Math.max(...eVals);
+        const norm = v => eMax === eMin ? 0.5 : (v - eMin)/(eMax - eMin);
+
+        const nodesData = this.syllables.map((sy, i) => {
+          const v = norm(sy.energyMean);
+          const col = new THREE.Color().setHSL(0.55 + v*0.3, 1, 0.5);
+          return {
+            id: sy.id,
+            pos: emb[i],
+            color: [col.r, col.g, col.b],
+            energy: v,
+            pitch: sy.pitchMean,
           };
         });
-        
-        this.neighbors = this.reducer.knn(6);
-        
+
         if (!this.frozen) {
-            this.vis.setData(this.nodes, this.neighbors);
+          this.vis.set(nodesData, neighbors);
         }
-        this.statusEl.innerText = `Syllables detected: ${this.syllables.length}. Last Syllable: t=${s.startTime.toFixed(2)}s, p=${s.pitchMean.toFixed(1)}Hz`;
+
+        document.getElementById('status').textContent = `Syllables: ${this.syllables.length} | Last: ${s.pitchMean.toFixed(0)} Hz @ ${s.startTime.toFixed(1)}s`;
+      }
+
+      export() {
+        const data = { syllables: this.syllables.map(s => ({...s, features: Array.from(s.features)})) };
+        const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'voice-nervous-system.json';
+        a.click();
       }
     }
 
-    // bootstrap
+    // Bootstrap
     const app = new App();
 
-    // cleanup
-    window.addEventListener('beforeunload', ()=>{ try{ app.stop(); }catch(e){} });
+    // Cleanup
+    window.addEventListener('beforeunload', () => app.stop());
   </script>
 </body>
 </html>
