@@ -1024,7 +1024,7 @@ header .chip {
     <div>Made with ♥ by Anirban Dey.</div>
   </div>
   <div class="footer-links">
-    <a href="https://github.com" target="_blank" rel="noopener noreferrer" class="footer-link" title="GitHub">
+    <a href="https://github.com/KEYGAMER" target="_blank" rel="noopener noreferrer" class="footer-link" title="GitHub">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V21"></path>
       </svg>
@@ -1044,7 +1044,6 @@ header .chip {
 </div>
 
 <script>
-  // UPDATED: Graph2D Class (integrated from provided code, adapted for single function and math.js)
   class Graph2D {
     constructor(canvas, options = {}) {
       this.canvas = canvas;
@@ -1094,7 +1093,7 @@ header .chip {
       this.loop();
     }
 
-    // ... (rest of Graph2D methods unchanged from provided code)
+  
     worldToScreen(x, y) {
       return {
         sx: (x - this.originX) * this.scaleX,
@@ -1139,7 +1138,7 @@ header .chip {
     attachEvents() {
   const c = this.canvas;
 
-  // Mouse events (unchanged)
+  // Mouse events 
   c.addEventListener('mousedown', (e) => {
     this.isDragging = true;
     this.inertia.active = false;
@@ -1189,7 +1188,7 @@ header .chip {
     this.requestRedraw();
   });
 
-  // Mouse wheel zoom (in/out) - unchanged, already supports zoom out on scroll down
+  // Mouse wheel zoom (in/out)
   c.addEventListener('wheel', (e) => {
     e.preventDefault();
     const rect = c.getBoundingClientRect();
@@ -1252,7 +1251,7 @@ header .chip {
     const rect = c.getBoundingClientRect();
 
     if (touches.length === 1 && this.isDragging) {
-      // Single touch: Continue drag (unchanged)
+      // Single touch: Continue drag
       const touch = touches[0];
       const sx = touch.clientX - rect.left;
       const sy = touch.clientY - rect.top;

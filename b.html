@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coordinatix 3D - Advanced 3D Mathematical Visualization</title>
+  <link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@400;700&family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary: #1a73e8;
+      --secondary: #34a853;
+      --accent: #ea4335;
+      --bg: #ffffff;
+      --bg-light: #f8f9fa;
+      --text: #202124;
+      --text-light: #5f6368;
+      --border: #e8eaed;
+    }
+
+    body {
+      font-family: 'Open Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      position: relative;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100vh;
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    .video-background {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100vh;
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    .video-background video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    header {
+      background: transparent;
+      border-bottom: none;
+      padding: 16px 0;
+      position: relative;
+      z-index: 100;
+      box-shadow: none;
+    }
+
+    .header-content {
+      max-width: 100%;
+      padding: 0 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      font-family: 'Merriweather', serif;
+      font-size: 24px;
+      font-weight: 700;
+      color: white;
+    }
+
+    nav {
+      display: flex;
+      gap: 24px;
+    }
+
+    nav a {
+      color: #707070;
+      text-decoration: none;
+      font-size: 14px;
+      transition: color 0.3s;
+    }
+
+    nav a:hover {
+      color: #a0a0a0;
+    }
+
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    .hero-container {
+      max-width: 100%;
+      margin: 0;
+      padding: 0;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero {
+      padding: 0;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+      background: transparent;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .hero h1 {
+      font-family: 'Merriweather', serif;
+      font-size: 48px;
+      margin-bottom: 24px;
+      color: white;
+      line-height: 1.2;
+    }
+
+    .hero p {
+      font-size: 18px;
+      color: #a09e9e;
+      max-width: 600px;
+      margin: 0 auto 40px;
+    }
+
+    .hero-meta {
+      font-size: 13px;
+      color: #8c8a8a;
+      margin-bottom: 24px;
+    }
+
+    .cta-button {
+      display: inline-block;
+      padding: 10px 24px;
+      background: var(--primary);
+      color: white;
+      text-decoration: none;
+      border-radius: 4px;
+      transition: background 0.3s;
+      font-weight: 600;
+      font-size: 14px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .cta-button:hover {
+      background: #1665d1;
+    }
+
+    .content {
+      padding: 60px 0;
+    }
+
+    .section {
+      margin-bottom: 60px;
+    }
+
+    .section h2 {
+      font-family: 'Merriweather', serif;
+      font-size: 36px;
+      margin-bottom: 24px;
+      color: var(--text);
+    }
+
+    .section p {
+      font-size: 16px;
+      color: var(--text-light);
+      margin-bottom: 16px;
+      line-height: 1.8;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+      margin-top: 32px;
+    }
+
+    .card {
+      background: var(--bg-light);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 24px;
+      transition: all 0.3s;
+    }
+
+    .card:hover {
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      transform: translateY(-2px);
+    }
+
+    .card h3 {
+      font-size: 18px;
+      margin-bottom: 12px;
+      color: var(--text);
+    }
+
+    .card p {
+      font-size: 14px;
+      color: var(--text-light);
+    }
+
+    .timeline {
+      margin-top: 40px;
+    }
+
+    .timeline-item {
+      display: flex;
+      gap: 24px;
+      margin-bottom: 32px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .timeline-item:last-child {
+      border-bottom: none;
+    }
+
+    .timeline-date {
+      flex-shrink: 0;
+      width: 100px;
+      font-weight: 700;
+      color: var(--primary);
+      font-size: 14px;
+    }
+
+    .timeline-content h4 {
+      font-size: 16px;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+
+    .timeline-content p {
+      font-size: 14px;
+      color: var(--text-light);
+    }
+
+    .status-badge {
+      display: inline-block;
+      background: var(--bg-light);
+      color: var(--primary);
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-top: 8px;
+    }
+
+    .status-badge.active {
+      background: #e6f4ea;
+      color: var(--secondary);
+    }
+
+    .status-badge.planned {
+      background: #fce8e6;
+      color: var(--accent);
+    }
+
+    .highlight {
+      background: #fff3cd;
+      padding: 16px 20px;
+      border-left: 4px solid #ffc107;
+      border-radius: 4px;
+      margin: 24px 0;
+      font-size: 14px;
+    }
+
+    .highlight strong {
+      color: var(--text);
+    }
+
+    .features-list {
+      list-style: none;
+      margin-top: 24px;
+    }
+
+    .features-list li {
+      padding: 12px 0;
+      padding-left: 28px;
+      position: relative;
+      font-size: 15px;
+      color: var(--text-light);
+    }
+
+    .features-list li:before {
+      content: "✓";
+      position: absolute;
+      left: 0;
+      color: var(--secondary);
+      font-weight: bold;
+    }
+
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 40px 0;
+      margin-top: 80px;
+      background: var(--bg-light);
+    }
+
+    .footer-content {
+      text-align: center;
+      font-size: 14px;
+      color: var(--text-light);
+    }
+
+    .footer-links {
+      margin-bottom: 16px;
+    }
+
+    .footer-links a {
+      color: var(--primary);
+      text-decoration: none;
+      margin: 0 16px;
+    }
+
+    .footer-links a:hover {
+      text-decoration: underline;
+    }
+
+    @media (max-width: 768px) {
+      .hero h1 {
+        font-size: 32px;
+      }
+
+      .section h2 {
+        font-size: 24px;
+      }
+
+      nav {
+        gap: 12px;
+      }
+
+      nav a {
+        font-size: 12px;
+      }
+
+      .timeline-item {
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .timeline-date {
+        width: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="video-background">
+    <video autoplay muted loop playsinline>
+      <source src="images/video1.mp4" type="video/mp4">
+    </video>
+  </div>
+
+  <header>
+    <div class="header-content">
+      <div class="logo">Coordinatix</div>
+      <nav>
+        <a href="#about">About</a>
+        <a href="#features">Features</a>
+        <a href="#roadmap">Roadmap</a>
+        <a href="testing1.html">Try Beta</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="hero-container">
+    <section class="hero">
+      <div class="hero-content">
+        <h1>3D Mathematical Visualization Reimagined</h1>
+        <div class="hero-meta">Published in December 2023 | Currently in Development (2025) | Beta Active</div>
+        <p>Explore complex 3D functions with unprecedented ease, and discover the future of computational mathematics.</p>
+        <a href="testing1.html" class="cta-button">Try Coordinatix 3D Beta</a>
+      </div>
+    </section>
+  </div>
+
+  <div class="container content">
+    <section class="section" id="about">
+      <h2>The Vision</h2>
+      <p>
+        Coordinatix 3D was first published in December 2023 as my personal exploration into interactive 3D mathematical visualization. 
+        Since then, I've been continuously refining the parsing engine, improving computational quality, and expanding capabilities. 
+        Now in 2025, we're at an exciting inflection point where all the foundational work is almost ready to scale.
+      </p>
+      <p>
+        My ultimate vision is ambitious: to create a comprehensive web-based simulator that can model complex physical phenomena, 
+        advanced mathematics, and scientific concepts—all accessible through a browser. This isn't just about visualization anymore; 
+        it's about creating a powerful platform for scientific computing and research.
+      </p>
+      <div class="highlight">
+        <strong>2026 Milestone:</strong> Collaboration with Nagoya University will mark the beginning of the acceleration phase. 
+        With academic support, we'll integrate AI systems, build physics engines, and establish the foundation for what will become 
+        a world-class web-based scientific simulator by 2028-2029.
+      </div>
+    </section>
+
+    <section class="section" id="features">
+      <h2>Current Capabilities</h2>
+      <p>Coordinatix 3D Beta includes powerful features for mathematical visualization:</p>
+      <ul class="features-list">
+        <li>Real-time 3D function visualization with smooth rendering</li>
+        <li>Interactive orbit controls for intuitive exploration</li>
+        <li>Support for complex mathematical expressions(working to make it even better)</li>
+        <li>Dynamic grid and axis visualization</li>
+        <li>Multiple simultaneous functions with color coding</li>
+        <li>Responsive design for desktops</li>
+        <li>Fast computation engine for instant updates</li>
+      </ul>
+      <div class="grid" style="margin-top: 40px;">
+        <div class="card">
+          <h3>🎨 Visual Design</h3>
+          <p>Clean, intuitive interface focused on mathematical clarity without unnecessary complexity.</p>
+        </div>
+        <div class="card">
+          <h3>⚡ Performance</h3>
+          <p>Optimized rendering engine for smooth interaction even with complex 3D models.</p>
+        </div>
+        <div class="card">
+          <h3>🔧 Accessibility</h3>
+          <p>Works seamlessly across all devices with consistent experience and performance.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="roadmap">
+      <h2>Development Roadmap</h2>
+      <p>From beta to full-featured platform: here's what's planned for Coordinatix 3D</p>
+
+      <div class="timeline">
+        <div class="timeline-item">
+          <div class="timeline-date">Dec 2023</div>
+          <div class="timeline-content">
+            <h4>Official Launch</h4>
+            <p>Coordinatix 3D published with core 3D visualization capabilities and real-time interactive exploration.</p>
+            <span class="status-badge active">Completed</span>
+          </div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-date">2024</div>
+          <div class="timeline-content">
+            <h4>Parsing Engine Refinement</h4>
+            <p>Continuous improvement of mathematical expression parsing, computational accuracy, and visualization quality.</p>
+            <span class="status-badge active">Completed</span>
+          </div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-date">2025</div>
+          <div class="timeline-content">
+            <h4>Optimization & Preparation</h4>
+            <p>Performance optimization, bug fixes, and architectural improvements. Building foundation for next phase of development.</p>
+            <span class="status-badge active">In Progress</span>
+          </div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-date">2026</div>
+          <div class="timeline-content">
+            <h4>Nagoya University Partnership</h4>
+            <p>Exploring opportunities for collaboration with Nagoya University in 2025–26.. Integration of AI systems, advanced physics engines, and research-grade simulation tools.</p>
+            <span class="status-badge planned">Next</span>
+          </div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-date">2026-2027</div>
+          <div class="timeline-content">
+            <h4>Advanced Simulation Suite</h4>
+            <p>Development of physics engine, fluid dynamics, electromagnetism, and quantum visualization. Transformation into scientific simulator.</p>
+            <span class="status-badge planned">Planned</span>
+          </div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-date">2027-2028</div>
+          <div class="timeline-content">
+            <h4>AI Integration & Refinement</h4>
+            <p>Machine learning models for analysis, intelligent suggestions, and research applications. Web platform optimization.</p>
+            <span class="status-badge planned">Planned</span>
+          </div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-date">2028-2029</div>
+          <div class="timeline-content">
+            <h4>Full Web-Based Simulator Release</h4>
+            <p>Complete platform launch as a comprehensive web-based scientific simulator. Target: production-ready for research, education, and scientific computation.</p>
+            <span class="status-badge planned">Target</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Future Plans</h2>
+      <p>
+        As Coordinatix 3D evolves, the possibilities are endless. Here's what I envision for the platform:
+      </p>
+      <div class="grid">
+        <div class="card">
+          <h3>Physics Simulations</h3>
+          <p>Model real-world phenomena—from planetary motion to fluid flow—with accurate physics engines.</p>
+        </div>
+        <div class="card">
+          <h3>AI Integration</h3>
+          <p>Intelligent systems that learn from user interactions and provide personalized educational guidance.</p>
+        </div>
+        <div class="card">
+          <h3>Web-Based Simulator</h3>
+          <p>A comprehensive platform for scientific computing accessible to anyone with a browser.</p>
+        </div>
+        <div class="card">
+          <h3>Educational Tools</h3>
+          <p>Curriculum integration for universities and schools worldwide.</p>
+        </div>
+        <div class="card">
+          <h3>Research Platform</h3>
+          <p>A toolkit for mathematical researchers and scientists to explore new theories and concepts.</p>
+        </div>
+        <div class="card">
+          <h3>Community Ecosystem</h3>
+          <p>Eventually, a community-driven project where mathematicians collaborate on advancement.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>About This Project</h2>
+      <p>
+        Coordinatix 3D is my personal passion project—a labor of love born from the desire to make mathematics more accessible 
+        and engaging. Every line of code, every design decision, is guided by my commitment to creating something genuinely useful 
+        for students, educators, and researchers.
+      </p>
+      <p>
+        This journey is still in its early stages, but I'm excited about where it's headed. The goal is to build not just a tool, 
+        but a movement—a community around the belief that mathematics should be interactive, visual, and free from unnecessary complexity.
+      </p>
+      <p>
+        Thank you for being part of this adventure. Your feedback and support drive this project forward.
+      </p>
+    </section>
+  </div>
+
+  <footer>
+    <div class="container footer-content">
+      <div class="footer-links">
+        <a href="testing1.html">Try Beta</a>
+        <a href="#">GitHub</a>
+        <a href="#">Contact</a>
+        <a href="a.html">Calculex Blog</a>
+      </div>
+      <p>&copy; 2023 Coordinatix 3D. All rights reserved. Created with passion for mathematics.</p>
+    </div>
+  </footer>
+</body>
+</html>
