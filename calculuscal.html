@@ -2180,7 +2180,7 @@ const tol = 15 * Math.max(absTol, relTol * Math.abs(S12));
 
 // Numeric derivative at x0
 function derivativeNumeric(f, x0) {
-  if (!isFinite(x0)) throw new Error("x0 must be finite.");
+  if (!isFinite(x0)) throw new Error("x₀ must be finite.");
   let h = Math.max(1e-5, Math.abs(x0) * 1e-5);
   function df(h) {
     const f1 = f(x0 + h);
@@ -2195,7 +2195,7 @@ function derivativeNumeric(f, x0) {
 
 // Numeric limit of f(x) at x0
 function limitNumeric(f, x0) {
-  if (!isFinite(x0)) throw new Error("x0 must be finite.");
+  if (!isFinite(x0)) throw new Error("x₀ must be finite.");
   let h = Math.max(1e-5, Math.abs(x0) * 1e-5);
   const samples = [];
   for (let k = 0; k < 5; k++) {
@@ -2205,7 +2205,7 @@ function limitNumeric(f, x0) {
     if (!isFinite(left) || !isFinite(right)) continue;
     samples.push(0.5 * (left + right));
   }
-  if (!samples.length) throw new Error("Could not sample finite values near x0.");
+  if (!samples.length) throw new Error("Could not sample finite values near x₀.");
   samples.sort((a,b)=>a-b);
   const trimmed = samples.slice(1, samples.length - 1);
   const arr = trimmed.length ? trimmed : samples;
@@ -2274,7 +2274,7 @@ const f = compileFunction(expr, variable);
 const originalLatex = mathField.latex();
 
    if (op === 'evaluate') {
-  if (!x0Str) throw new Error("Enter x0 for evaluation.");
+  if (!x0Str) throw new Error("Enter x₀ for evaluation.");
   const x0 = parseValue(x0Str);
   const y = f(x0);
 
@@ -2346,7 +2346,7 @@ const originalLatex = mathField.latex();
         throw new Error("Could not compute symbolic derivative: " + err.message);
       }
     } else if (op === 'differentiateNumeric') {
-      if (!x0Str) throw new Error("Enter x0 for derivative.");
+      if (!x0Str) throw new Error("Enter x₀ for derivative.");
       const x0 = parseValue(x0Str);
       const df = derivativeNumeric(f, x0);
       renderLatex(resultEl, `\\left.\\dfrac{df}{d${variable}}\\right|_{${variable}=${fmtNumber(x0)}} \\approx ${fmtNumber(df)}`);
@@ -2359,7 +2359,7 @@ const originalLatex = mathField.latex();
       const I = integrateAdaptiveSimpson(f, a, b, { absTol: 1e-10, relTol: 1e-10, maxDepth: 20 });
       renderLatex(resultEl, `\\int_{${fmtNumber(a)}}^{${fmtNumber(b)}} f(${variable})\\, dx \\approx ${fmtNumber(I)}`);
     } else if (op === 'limit') {
-      if (!x0Str) throw new Error("Enter x0 for limit.");
+      if (!x0Str) throw new Error("Enter x₀ for limit.");
       const x0 = parseValue(x0Str);
       const L = limitNumeric(f, x0);
       renderLatex(resultEl, `\\lim_{${variable} \\to ${fmtNumber(x0)}} f(${variable}) \\approx ${fmtNumber(L)}`);
